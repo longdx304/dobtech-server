@@ -1,0 +1,13 @@
+# node_modules/
+# dist/
+# uploads/
+# build/
+# .cache/
+# .next/
+# .github
+# .env
+# .DS_Store
+# yarn-error.log
+# .git
+# .gitignore
+# README.md

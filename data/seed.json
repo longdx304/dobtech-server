@@ -1,0 +1,72 @@
+{
+	"store": {
+		"currencies": ["vnd"]
+	},
+	"users": [
+		{
+			"email": "admin@test.com",
+			"password": "123456",
+			"first_name": "DobTech",
+			"last_name": "Company",
+			"role": "admin"
+		}
+	],
+	"regions": [
+		{
+			"id": "region-vn",
+			"name": "Vietnam",
+			"currency_code": "vnd",
+			"tax_rate": 0,
+			"payment_providers": ["manual"],
+			"fulfillment_providers": ["manual"],
+			"countries": ["vn"]
+		}
+	],
+	"shipping_options": [
+		{
+			"name": "Giao hàng tiêu chuẩn",
+			"region_id": "region-vn",
+			"provider_id": "manual",
+			"data": {
+				"id": "manual-fulfillment"
+			},
+			"price_type": "flat_rate",
+			"amount": 0
+		},
+		{
+			"name": "Giao hàng tiêu chuẩn",
+			"region_id": "region-vn",
+			"provider_id": "manual",
+			"data": {
+				"id": "manual-fulfillment"
+			},
+			"price_type": "flat_rate",
+			"is_return": true,
+			"amount": 0
+		}
+	],
+	"products": [],
+	"categories": [
+		{
+			"id": "pcat_man",
+			"name": "Nam",
+			"rank": 0,
+			"category_children": [],
+			"handle": "nam"
+		},
+		{
+			"id": "pcat_woman",
+			"name": "Nữ",
+			"rank": 0,
+			"category_children": [],
+			"handle": "nu"
+		},
+		{
+			"id": "pcat_children",
+			"name": "Trẻ em",
+			"rank": 0,
+			"category_children": [],
+			"handle": "tre-em"
+		}
+	]
+}
