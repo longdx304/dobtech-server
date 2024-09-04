@@ -3,6 +3,7 @@ body {
   font-family: Arial, sans-serif;
   line-height: 1.6;
   color: #333;
+  word-wrap: break-word;
 }
 
 .container {
@@ -35,6 +36,8 @@ table.table-item td {
   padding: 10px 20px;
   background-color: #d9d9d9;
   border: 1px solid white;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 table th {
@@ -47,10 +50,17 @@ table th {
 
 table td {
   padding: 10px 20px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 table tfoot td {
   font-weight: bold;
+}
+
+table {
+  width: 100%;
+  table-layout: auto;
 }
 
 /* Button Styles */
@@ -81,21 +91,6 @@ table tfoot td {
   .container {
     width: 100% !important;
   }
-  .container-padding {
-    padding-left: 12px !important;
-    padding-right: 12px !important;
-  }
-  .responsive-table {
-    width: 100% !important;
-  }
-  .mobile-block {
-    width: 100% !important;
-    display: block !important;
-  }
-  .responsive-img {
-    width: 100% !important;
-    height: auto !important;
-  }
   td {
     padding: 8px;
   }
@@ -110,5 +105,18 @@ table tfoot td {
   p a {
     padding: 6px 24px;
     font-size: 14px;
+  }
+  body {
+    font-size: 14px;
+  }
+  table {
+    font-size: 12px;
+  }
+  td {
+    padding: 6px;
+  }
+  p {
+    margin: 12px 0 6px;
+    font-size: 12px;
   }
 }
