@@ -38,3 +38,4 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   }
 }
 
+// export const AUTHENTICATE = false;

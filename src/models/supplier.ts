@@ -19,7 +19,7 @@ export class Supplier extends BaseEntity {
   default_estimated_production_time: number;
 
   @Column()
-  default_settlement_time: Date;
+  default_settlement_time: number;
 
   @Column({ type: 'jsonb', nullable: true, default: {} }) 
   metadata: Record<string, unknown>;
