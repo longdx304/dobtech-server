@@ -50,7 +50,7 @@ describe('SupplierService', () => {
         Promise.resolve([suppliers, 2])
       );
 
-      const result = await supplierService.list(10, 0);
+      const result = await supplierService.list('', 10, 0);
 
       expect(supplierRepository.findAndCount).toHaveBeenCalledWith({
         take: 10,

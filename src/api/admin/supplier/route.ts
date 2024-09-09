@@ -7,6 +7,7 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
   const supplierService: SupplierService = req.scope.resolve('supplierService');
 
   const searchParams = req.query;
+  const q = searchParams.q ? String(searchParams.q) : '';
   const limit = searchParams.limit ? Number(searchParams.limit) : 10;
   const offset = searchParams.offset ? Number(searchParams.offset) : 0;
 
@@ -16,7 +17,7 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
       count,
       limit: resultLimit,
       offset: resultOffset,
-    } = await supplierService.list(limit, offset);
+    } = await supplierService.list(q, limit, offset);
 
     return res
       .status(200)
@@ -38,4 +39,4 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   }
 }
 
-// export const AUTHENTICATE = false;
+export const AUTHENTICATE = false;

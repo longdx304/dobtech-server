@@ -1,6 +1,6 @@
 import { TransactionBaseService } from '@medusajs/medusa';
 import { CreateSupplierInput, UpdateSupplierInput } from 'src/types/supplier';
-import { EntityManager, Not, IsNull } from 'typeorm';
+import { EntityManager, Not, IsNull, ILike } from 'typeorm';
 import { Supplier } from '../models/supplier';
 import SupplierRepository from '../repositories/supplier';
 
@@ -22,11 +22,11 @@ class SupplierService extends TransactionBaseService {
     const supplierRepo = this.activeManager_.withRepository(
       this.supplierRepository_
     );
-  
+
     const supplier = await supplierRepo.findOne({
       where: { id },
     });
-  
+
     return supplier;
   }
 
@@ -46,20 +46,29 @@ class SupplierService extends TransactionBaseService {
     );
   }
 
-  // async list(): Promise<Supplier[]> {
-  //   const supplierRepo = this.activeManager_.withRepository(
-  //     this.supplierRepository_
-  //   );
-  //   return await supplierRepo.find();
-  // }
   async list(
+    q?: string,
     limit: number = 10,
     offset: number = 0
-  ): Promise<{ suppliers: Supplier[]; count: number; limit: number; offset: number }> {
+  ): Promise<{
+    suppliers: Supplier[];
+    count: number;
+    limit: number;
+    offset: number;
+  }> {
     const supplierRepo = this.activeManager_.withRepository(
       this.supplierRepository_
     );
+
+    const whereClause = q
+      ? [
+          { supplier_name: ILike(`%${q}%`) }, // Search by name
+          { email: ILike(`%${q}%`) }, // Search by email
+        ]
+      : {};
+
     const [suppliers, count] = await supplierRepo.findAndCount({
+      where: whereClause,
       take: limit,
       skip: offset,
       order: { created_at: 'ASC' },
@@ -86,10 +95,10 @@ class SupplierService extends TransactionBaseService {
         const supplierRepository = transactionManager.withRepository(
           this.supplierRepository_
         );
-        
+
         // Check if a supplier with the same email already exists
         const existingSupplier = await supplierRepository.findOne({
-          where: { email: data.email }
+          where: { email: data.email },
         });
 
         if (existingSupplier) {
