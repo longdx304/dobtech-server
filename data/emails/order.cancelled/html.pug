@@ -1,0 +1,29 @@
+extends ./../layouts/main.pug
+block title
+    p(class="warn") Đơn hàng của bạn đã được hủy!
+block description
+    p(class="warn") Dưới đây là chi tiết đơn hàng:
+    table(class="list" border="1")
+        for item in order.items
+            tr
+                td
+                    p #{item.title}
+                td
+                    img(src=item.thumbnail)
+                td
+                    p #{item.unit_price / 100} #{order.currency_code === 'usd' ? '$' : order.currency_code} x#{item.quantity}
+        for item in order.shipping_methods
+            tr
+                td(colspan="2")
+                    p #{item.shipping_option.name}
+                td
+                    p #{item.shipping_option.amount / 100} #{order.currency_code === 'usd' ? '$' : order.currency_code}
+        tr
+            td(colspan="2")
+                p(class="align-right bold") Tổng tiền
+            td
+                p(class="bold") #{total_value} #{order.currency_code === 'usd' ? '$' : order.currency_code}
+    p(class="small") Mã số đơn hàng: #{order.id}
+//-
+//- block actions
+//-     a(href=link, target="_blank" class="button") Visit our website

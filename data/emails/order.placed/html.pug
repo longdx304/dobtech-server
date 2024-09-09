@@ -1,0 +1,92 @@
+extends ./../layouts/main.pug
+
+block title
+    h2 Đơn hàng của bạn đang được xử lý
+
+block description
+    p Cảm ơn quý khách đã mua hàng tại CHAMDEP VN. Đơn hàng của quý khách đang được đóng gói và sẽ sớm được gửi đi. Dưới đây là chi tiết đơn hàng:
+
+    div(style="border:2px solid #2f5acf; padding:8px 16px; border-radius:16px; margin-top:16px")
+        p(style="margin:10px 0 20px; font-weight:bold;font-size:20px")
+            | THÔNG TIN ĐƠN HÀNG
+
+        table(cellpadding="0" cellspacing="0" border="0" width="100%")
+            tr
+                td(valign="top" style="text-align: start; padding-right: 10px; font-size:16px")
+                    p(style="margin:10px 0;font-weight:bold") Thông tin tài khoản
+                    p(style="margin:10px 0") Tên khách hàng: #{order.billing_address.first_name} #{order.billing_address.last_name}
+                    p(style="margin:10px 0") 
+                        | Email: 
+                        a(href=`mailto:${order.customer.email}` target="_blank")= order.customer.email
+                    p(style="margin:10px 0") Số điện thoại: #{order.customer.phone}
+
+                td(valign="top" style="text-align: start; padding-left: 10px; font-size:16px")
+                    p(style="margin:10px 0;font-weight:bold") Địa chỉ giao hàng
+                    p(style="margin:10px 0") Tên khách hàng: #{order.shipping_address.first_name} #{order.shipping_address.last_name}
+                    p(style="margin:10px 0") 
+                        | Email: 
+                        a(href=`mailto:${order.email}` target="_blank")= order.email
+                    p(style="margin:10px 0") Số điện thoại: #{order.shipping_address.phone}
+                    p(style="margin:10px 0") Địa chỉ: #{order.shipping_address.address_1}, #{order.shipping_address.city}, #{order.shipping_address.province}
+
+            tr
+                td(colspan="2" style="text-align: start;")
+                    p(style="margin:10px 0;font-size:16px")
+                        b Phương thức thanh toán:
+                        |  Thanh toán khi nhận hàng (COD)
+
+    div(style="border:2px solid #2f5acf;padding:8px 16px;border-radius:16px;margin-top:16px")
+        p(style="margin:10px 0 20px;font-weight:bold;font-size:20px") CHI TIẾT ĐƠN HÀNG
+        
+        table(class="table-item" cellpadding="0" cellspacing="0" border="0")
+            thead
+                tr
+                    th(style="text-align:left") Tên sản phẩm
+                    th(style="text-align:center") SL
+                    th(style="text-align:center") Giá bán
+                    th(style="text-align:right") Thành tiền
+            tbody
+                each item in items
+                    tr
+                        td(style="text-align:left")
+                            p(style="margin:5px 0 0")= item.title
+                            if item.description
+                                p(style="margin-top:3px;font-size:12px;display:block")= item.description
+                        td(style="text-align:center")= item.quantity
+                        td(style="text-align:center")
+                            b #{(item.unit_price).toLocaleString('vi-VN')}#{order.currency_code === 'usd' ? '$' : 'đ'}
+                            if item.original_price && item.original_price > item.unit_price
+                                del(style="font-size:12px;margin-left:5px") #{(item.original_price).toLocaleString('vi-VN')}#{order.currency_code === 'usd' ? '$' :'đ'}
+                        td(style="text-align:right") #{(item.unit_price * item.quantity).toLocaleString('vi-VN')}#{order.currency_code === 'usd' ? '$' :'đ'}
+            tfoot
+                if isDiscount && order.discounts && order.discounts.length > 0
+                    tr
+                        td(style="text-align:left" colspan="3") Mã giảm giá
+                        td(style="text-align:right")= order.discounts[0].code
+                if isDiscount && order.discounts && order.discounts.length && order.discounts[0].rule.value
+                    tr
+                        td(style="text-align:left" colspan="3") Số tiền giảm giá
+                        td(style="text-align:right") 
+                            - var discountValue = order.discounts && order.discounts.length > 0 && order.discounts[0].rule.value ? order.discounts[0].rule.value : '0'
+                            | #{discountValue}#{order.discounts[0].rule.type === 'percentage' ? '%' :'đ'}
+                if order.shipping_methods && order.shipping_methods.length > 0
+                    tr
+                        td(style="text-align:left" colspan="3") Phí vận chuyển
+                        td(style="text-align:right") #{order.shipping_methods[0].price.toLocaleString('vi-VN')}#{order.currency_code === 'usd' ? '$' :'đ'}
+                tr
+                    td(style="text-align:left" colspan="3")
+                        b Tổng thanh toán
+                    td(style="text-align:right")
+                        b #{payments[0].amount.toLocaleString('vi-VN')}#{order.currency_code === 'usd' ? '$' :'đ'}
+                tr
+                    td(style="text-align:left" colspan="3")
+                        b Hình thức thanh toán
+                    td(style="text-align:right")
+                        b= payments[0].provider_id === 'manual' ? 'Thanh toán khi nhận hàng (COD)' : 'Thanh toán qua thẻ'
+
+block actions
+    p.center
+        a.button(
+            href=trackingUrl 
+            style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;"
+        ) Theo dõi đơn hàng
