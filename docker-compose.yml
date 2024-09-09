@@ -4,7 +4,7 @@ services:
         build:
             context: .
             dockerfile: Dockerfile
-        image: dob-ecommerce-server
+        image: dob-ecommerce-app:latest
         restart: always
         container_name: dob-ecommerce-server
         env_file:
@@ -17,6 +17,21 @@ services:
         volumes:
             - ./:/app
             - node_modules:/app/node_modules
+        environment:
+            DATABASE_URL: "postgres://admin:admin@postgres:5432/medusa_db"
+            REDIS_URL: "redis://cache"
+
+    postgres:
+        image: postgres:16-alpine
+        restart: always
+        volumes:
+        - postgres-db:/var/lib/postgresql/data
+        environment:
+        - POSTGRES_DB=medusa_db
+        - POSTGRES_USER=admin
+        - POSTGRES_PASSWORD=admin
+        ports:
+        - 5432:5432
 
     redis:
         image: redis:7.0.7-alpine
@@ -26,17 +41,6 @@ services:
             - "6379:6379"
         volumes:
             - redis_data:/data
-    postgres:
-        image: postgres:16-alpine
-        restart: always
-        volumes:
-            - postgres-db:/var/lib/postgresql/data
-        environment:
-            - POSTGRES_DB=medusa_db
-            - POSTGRES_USER=admin
-            - POSTGRES_PASSWORD=admin
-        ports:
-            - 5432:5432
 
 volumes:
     postgres-db:

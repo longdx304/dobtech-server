@@ -8,7 +8,7 @@
 	},
 	"users": [
 		{
-			"email": "admin@dotech.com",
+			"email": "admin@dobtech.com",
 			"password": "123456",
 			"first_name": "DobTech",
 			"last_name": "Company",
