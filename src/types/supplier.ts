@@ -3,8 +3,8 @@ export type CreateSupplierInput = {
   supplier_name: string;
   phone?: string;
   address?: string;
-  default_estimated_production_time: number;
-  default_settlement_time: number;
+  estimated_production_time: number;
+  settlement_time: number;
   metadata?: Record<string, unknown>;
 };
 

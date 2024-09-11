@@ -122,8 +122,8 @@ describe('SupplierService', () => {
         email: 'new@supplier.com',
         phone: '1234567890',
         address: '123 Main St',
-        default_estimated_production_time: 10,
-        default_settlement_time: 10,
+        estimated_production_time: 10,
+        settlement_time: 10,
       });
 
       expect(supplierRepository.create).toHaveBeenCalledTimes(1);
@@ -132,8 +132,8 @@ describe('SupplierService', () => {
         email: 'new@supplier.com',
         phone: '1234567890',
         address: '123 Main St',
-        default_estimated_production_time: 10,
-        default_settlement_time: 10,
+        estimated_production_time: 10,
+        settlement_time: 10,
       });
     });
 
@@ -143,8 +143,8 @@ describe('SupplierService', () => {
         email: 'new@supplier.com',
         phone: '1234567890',
         address: '123 Main St',
-        default_estimated_production_time: 10,
-        default_settlement_time: 10,
+        estimated_production_time: 10,
+        settlement_time: 10,
       });
 
       expect(supplierRepository.findOne).toHaveBeenCalledWith({
@@ -161,8 +161,8 @@ describe('SupplierService', () => {
           email: 'existing@supplier.com',
           phone: '9876543210',
           address: '456 Elm St',
-          default_estimated_production_time: 5,
-          default_settlement_time: 10,
+          estimated_production_time: 5,
+          settlement_time: 10,
         })
       ).rejects.toThrow('A supplier with this email already exists');
     });
