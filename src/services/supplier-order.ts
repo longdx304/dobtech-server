@@ -17,6 +17,7 @@ import {
 import { EntityManager } from 'typeorm';
 import { isDefined, MedusaError } from '@medusajs/utils';
 import SupplierOrderDocumentService from './supplier-order-document';
+import EmailsService from './emails';
 
 type InjectedDependencies = {
 	manager: EntityManager;
@@ -26,6 +27,7 @@ type InjectedDependencies = {
 	cartService: CartService;
 	regionService: RegionService;
 	lineItemService: LineItemService;
+	emailService: EmailsService;
 };
 
 class SupplierOrderService extends TransactionBaseService {
@@ -35,6 +37,7 @@ class SupplierOrderService extends TransactionBaseService {
 	protected cartService_: CartService;
 	protected regionService_: RegionService;
 	protected lineItemService_: LineItemService;
+	protected emailService_: EmailsService;
 
 	constructor({
 		supplierOrderRepository,
@@ -43,6 +46,7 @@ class SupplierOrderService extends TransactionBaseService {
 		cartService,
 		regionService,
 		lineItemService,
+		emailService,
 	}: InjectedDependencies) {
 		super(arguments[0]);
 
@@ -52,6 +56,7 @@ class SupplierOrderService extends TransactionBaseService {
 		this.cartService_ = cartService;
 		this.regionService_ = regionService;
 		this.lineItemService_ = lineItemService;
+		this.emailService_ = emailService;
 	}
 
 	async retrieve(
@@ -218,6 +223,24 @@ class SupplierOrderService extends TransactionBaseService {
 					supplier_order_id: supplierOrder.id,
 					document_url,
 				});
+
+				const optionsEmail = {
+					attachments: [
+						{
+							filename: `dob_purchase-order.pdf`,
+							path: document_url,
+						},
+					],
+					cc: supplierOrder.user.email,
+				};
+				// Send email to the supplier and admin
+				await this.emailService_.sendEmail(
+					supplierOrder.supplier.email,
+					'supplier-order-created',
+					supplierOrder,
+					optionsEmail
+				);
+
 				return supplierOrder as SupplierOrder;
 			}
 		);
