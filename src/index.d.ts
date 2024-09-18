@@ -10,3 +10,10 @@ export declare module '@medusajs/medusa/dist/models/product-variant' {
 		supplier_price: number | null;
 	}
 }
+
+import { ProductVariant } from '@medusajs/medusa/dist/models/product-variant';
+export declare module '@medusajs/medusa/dist/models/product' {
+	declare interface Product {
+		variants: Relation<ProductVariant>[];
+	}
+}
