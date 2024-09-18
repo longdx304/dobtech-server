@@ -8,6 +8,7 @@ import {
 	RegionService,
 	TransactionBaseService,
 } from '@medusajs/medusa';
+import { isDefined, MedusaError } from '@medusajs/utils';
 import { SupplierOrder } from 'src/models/supplier-order';
 import SupplierOrderRepository from 'src/repositories/supplier-order';
 import {
@@ -15,9 +16,8 @@ import {
 	SupplierOrderSelector,
 } from 'src/types/supplier-orders';
 import { EntityManager } from 'typeorm';
-import { isDefined, MedusaError } from '@medusajs/utils';
-import SupplierOrderDocumentService from './supplier-order-document';
 import EmailsService from './emails';
+import SupplierOrderDocumentService from './supplier-order-document';
 
 type InjectedDependencies = {
 	manager: EntityManager;
@@ -27,7 +27,7 @@ type InjectedDependencies = {
 	cartService: CartService;
 	regionService: RegionService;
 	lineItemService: LineItemService;
-	emailService: EmailsService;
+	emailsService: EmailsService;
 };
 
 class SupplierOrderService extends TransactionBaseService {
@@ -37,7 +37,7 @@ class SupplierOrderService extends TransactionBaseService {
 	protected cartService_: CartService;
 	protected regionService_: RegionService;
 	protected lineItemService_: LineItemService;
-	protected emailService_: EmailsService;
+	protected emailsService_: EmailsService;
 
 	constructor({
 		supplierOrderRepository,
@@ -46,7 +46,7 @@ class SupplierOrderService extends TransactionBaseService {
 		cartService,
 		regionService,
 		lineItemService,
-		emailService,
+		emailsService,
 	}: InjectedDependencies) {
 		super(arguments[0]);
 
@@ -56,14 +56,13 @@ class SupplierOrderService extends TransactionBaseService {
 		this.cartService_ = cartService;
 		this.regionService_ = regionService;
 		this.lineItemService_ = lineItemService;
-		this.emailService_ = emailService;
+		this.emailsService_ = emailsService;
 	}
 
 	async retrieve(
 		id: string,
 		config: FindConfig<SupplierOrder> = {}
 	): Promise<SupplierOrder | undefined> {
-		console.log('id:', id);
 		if (!isDefined(id)) {
 			throw new MedusaError(
 				MedusaError.Types.NOT_FOUND,
@@ -208,8 +207,6 @@ class SupplierOrderService extends TransactionBaseService {
 					cart_id: cart.id,
 					estimated_production_time,
 					settlement_time,
-					// estimated_production_time: new Date(),
-					// settlement_time: new Date(),
 				};
 
 				// Add line items in the cart
@@ -218,11 +215,18 @@ class SupplierOrderService extends TransactionBaseService {
 					createSupplierOrder
 				);
 
+				// retrieve supplier, user, cart
+				const supplierOrderWithRelations = await this.retrieve(
+					supplierOrder.id
+				);
+
 				// Create supplier order documents
-				await this.supplierOrderDocumentService_.create({
-					supplier_order_id: supplierOrder.id,
-					document_url,
-				});
+				await this.supplierOrderDocumentService_
+					.withTransaction(transactionManager)
+					.create({
+						supplier_order_id: supplierOrder.id,
+						document_url,
+					});
 
 				const optionsEmail = {
 					attachments: [
@@ -231,13 +235,15 @@ class SupplierOrderService extends TransactionBaseService {
 							path: document_url,
 						},
 					],
-					cc: supplierOrder.user.email,
+					cc: supplierOrderWithRelations.user.email || 'admin@test.com',
 				};
+
 				// Send email to the supplier and admin
-				await this.emailService_.sendEmail(
-					supplierOrder.supplier.email,
-					'supplier-order-created',
-					supplierOrder,
+				await this.emailsService_.sendEmail(
+					// supplierOrderWithRelations.supplier.email,
+					'ducnam1719@gmail.com',
+					'supplier.order_created',
+					supplierOrderWithRelations,
 					optionsEmail
 				);
 

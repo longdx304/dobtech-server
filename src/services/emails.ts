@@ -1,5 +1,7 @@
+import axios from 'axios';
 import EmailTemplates from 'email-templates';
 import { Logger, NotificationService, OrderService } from 'medusa-interfaces';
+import SupplierOrderService from './supplier-order';
 import nodemailer from 'nodemailer';
 import path from 'path';
 
@@ -21,6 +23,7 @@ class EmailsService extends NotificationService {
 	protected lineItemService: any;
 	protected logger: Logger;
 	protected emailConfig: EmailConfig;
+	protected supplierOrderService :SupplierOrderService;
 
 	constructor(container: any, _options: EmailConfig) {
 		super(container);
@@ -33,7 +36,7 @@ class EmailsService extends NotificationService {
 		this.lineItemService = container.lineItemService;
 		// Set default options and override with provided options
 		this.emailConfig = {
-			fromAddress: process.env.EMAIL_FROM_ADDRESS,
+			fromAddress: `"DOB CHAMDEP" <${process.env.EMAIL_FROM_ADDRESS}>`,
 			templateDir: path.resolve(process.cwd(), 'data/emails'),
 			smtpHost: process.env.EMAIL_SMTP_HOST,
 			smtpPort: process.env.EMAIL_SMTP_PORT,
@@ -52,7 +55,7 @@ class EmailsService extends NotificationService {
 	async sendNotification(
 		event: string,
 		data: any,
-		attachmentGenerator: unknown
+		attachmentGenerator?: unknown
 	): Promise<{
 		to: string;
 		status: string;
@@ -138,12 +141,24 @@ class EmailsService extends NotificationService {
 		};
 	}
 
+	/**
+	 * Sends an email using the configured SMTP server and template engine.
+	 * The function will log information about the email being sent and any errors that occur.
+	 * If the email is sent successfully, it will return the result of the send operation.
+	 * If an error occurs, it will throw an error.
+	 * @param toAddress - The email address to send the email to
+	 * @param templateName - The name of the template to use for the email
+	 * @param data - The data to pass to the template engine
+	 * @param options - An object with options for the email. Currently only supports a single option: `attachments`.
+	 * @returns The result of the send operation
+	 */
 	async sendEmail(
 		toAddress: string,
 		templateName: string,
 		data: any,
 		options?: any
 	) {
+		this.logger.info(`Sending notification '${templateName}' via email service`);
 		this.logger.info(JSON.stringify(data));
 
 		try {
@@ -161,15 +176,27 @@ class EmailsService extends NotificationService {
 			await transport.verify();
 			this.logger.info('SMTP connection verified successfully');
 
+			// Use a stream instead of a file path
+			// create a readable stream from the URL and use that as the attachment.
+			// This avoids having to save the file locally
 			let attachments = [];
 			if (options?.attachments && options?.attachments?.length) {
-				attachments = options?.attachments.map((attachment) => {
-					return {
-						filename: attachment.filename,
-						content: attachment.path,
-					};
-				});
+				attachments = await Promise.all(
+					options.attachments.map(async (attachment) => {
+						if (attachment.path.startsWith('http')) {
+							const response = await axios.get(attachment.path, {
+								responseType: 'stream',
+							});
+							return {
+								filename: attachment.filename,
+								content: response.data,
+							};
+						}
+						return attachment;
+					})
+				);
 			}
+
 			const email = new EmailTemplates({
 				message: {
 					from: this.emailConfig.fromAddress,

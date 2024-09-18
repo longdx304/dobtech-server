@@ -4,12 +4,11 @@
 name: Node.js CI
 
 on:
-  push:
-    branches: [ "production" ]
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
   build:
-
     runs-on: seft-hosted
 
     strategy:
@@ -18,15 +17,36 @@ jobs:
         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-    - run: npm ci
-    - run: |
-          touch .env
-          echo "${{ secrets.PROD_FILE_ENV }}" > .env
-    - run: npm run build --if-present
-    - run: pm2 restart backend
+      - uses: actions/checkout@v4
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm install
+      - name: Create .env
+        run: |
+            touch .env
+            echo "${{ secrets.PROD_FILE_ENV }}" > .env
+      - name: Run build
+        run: npm run build --if-present
+
+  deploy:
+    runs-on: seft-hosted
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to production
+        run: |
+          if pm2 list | grep -q "backend"; then
+            echo "Updating existing PM2 process..."
+            pm2 stop backend
+            # Update application files here (e.g., copy new files to the appropriate directory)
+            # cp -R dist/* /path/to/your/app/directory/
+            pm2 restart backend
+          else
+            echo "Starting new PM2 process..."
+            pm2 start npm --name "backend" -- start
+          fi
+          pm2 save
