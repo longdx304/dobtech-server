@@ -11,6 +11,7 @@ import { registerExtendedValidator } from '../utils/register-exntended-validator
 import {
 	AdminPostProductsProductVariantsReq,
 	AdminPostProductsProductVariantsVariantReq,
+	AdminPostProductsReq,
 } from '../extend-validator/product';
 
 registerOverriddenValidators(AdminCreateUserRequest);
@@ -20,5 +21,6 @@ registerExtendedValidator(StorePostCartsCartReq);
 registerExtendedValidator(StorePostCartReq);
 
 // Register extended validators for product variants
+registerExtendedValidator(AdminPostProductsReq);
 registerExtendedValidator(AdminPostProductsProductVariantsReq);
 registerExtendedValidator(AdminPostProductsProductVariantsVariantReq);

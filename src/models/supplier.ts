@@ -16,10 +16,10 @@ export class Supplier extends BaseEntity {
   address?: string;
 
   @Column()
-  default_estimated_production_time: number;
+  estimated_production_time: number;
 
   @Column()
-  default_settlement_time: number;
+  settlement_time: number;
 
   @Column({ type: 'jsonb', nullable: true, default: {} }) 
   metadata: Record<string, unknown>;
