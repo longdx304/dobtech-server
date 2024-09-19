@@ -45,7 +45,7 @@ jobs:
           name: dist
       - name: List contents of current directory
         run: ls -la
-      - name: Deploy to staging
+      - name: Copy files to staging
         run: |
           # Ensure the deployment directory exists
           mkdir -p ~/dob-server
@@ -58,16 +58,26 @@ jobs:
           
           # Navigate to the deployment directory
           cd ~/dob-server
-          
-          # Install production dependencies
-          npm ci
-          
+      - name: Install dependencies for staging deployment
+        run: npm ci
+      - name: Deploy to staging pm2
+        run: |
           # Restart or start the PM2 process
           if pm2 list | grep -q "backend"; then
             echo "Updating existing PM2 process..."
             pm2 reload backend --update-env
           else
             echo "Starting new PM2 process..."
-            pm2 start npm --name "backend" -- start
+            pm2 start npm --name "backend" -- run start:deploy
           fi
           pm2 save
+      - name: Verify deployment
+        run: |
+          echo "Waiting for the application to start..."
+          sleep 10  # Adjust this value based on your application's startup time
+          if pm2 list | grep -q "backend.*online"; then
+            echo "Deployment successful. Application is running."
+          else
+            echo "Deployment may have failed. Check application logs."
+            exit 1
+          fi
