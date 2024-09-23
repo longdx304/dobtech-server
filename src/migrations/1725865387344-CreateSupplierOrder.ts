@@ -6,7 +6,7 @@ export class CreateSupplierOrder1725865387344 implements MigrationInterface {
 			`CREATE TABLE "supplier_order" (
 					"id" character varying NOT NULL,
 					"display_id" serial4 NOT NULL,
-					"supplier_id" character varying NOT NULL,
+					"supplier_id" character varying,
 					"user_id" character varying NOT NULL,
 					"cart_id" character varying NOT NULL,
 					"status" character varying DEFAULT 'pending',
@@ -22,7 +22,7 @@ export class CreateSupplierOrder1725865387344 implements MigrationInterface {
 					"canceled_at" TIMESTAMP WITH TIME ZONE NULL,
 					PRIMARY KEY ("id"),
 					CONSTRAINT "uq_supplier_order_cart_id" UNIQUE ("cart_id"),
-					CONSTRAINT "fk_supplier_order_supplier_id" FOREIGN KEY ("supplier_id") REFERENCES "supplier"("id"),
+					CONSTRAINT "fk_supplier_order_supplier_id" FOREIGN KEY ("supplier_id") REFERENCES "supplier"("id") ON DELETE SET NULL,
 					CONSTRAINT "fk_supplier_order_user_id" FOREIGN KEY ("user_id") REFERENCES "user"("id"),
 					CONSTRAINT "fk_supplier_order_cart_id" FOREIGN KEY ("cart_id") REFERENCES "cart"("id")
 				)`
