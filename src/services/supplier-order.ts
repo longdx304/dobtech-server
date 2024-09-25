@@ -1,7 +1,6 @@
 import {
 	buildQuery,
 	Cart,
-	CartService,
 	FindConfig,
 	LineItemService,
 	OrderService,
@@ -18,26 +17,30 @@ import {
 import { EntityManager } from 'typeorm';
 import EmailsService from './emails';
 import SupplierOrderDocumentService from './supplier-order-document';
+import MyCartService from './cart';
+import { FlagRouter } from 'src/utils/flag-router';
 
 type InjectedDependencies = {
 	manager: EntityManager;
 	supplierOrderRepository: typeof SupplierOrderRepository;
 	orderService: OrderService;
 	supplierOrderDocumentService: SupplierOrderDocumentService;
-	cartService: CartService;
+	cartService: MyCartService;
 	regionService: RegionService;
 	lineItemService: LineItemService;
 	emailsService: EmailsService;
+	featureFlagRouter: FlagRouter;
 };
 
 class SupplierOrderService extends TransactionBaseService {
 	protected supplierOrderRepository_: typeof SupplierOrderRepository;
 	protected orderService_: OrderService;
 	protected supplierOrderDocumentService_: SupplierOrderDocumentService;
-	protected cartService_: CartService;
+	protected cartService_: MyCartService;
 	protected regionService_: RegionService;
 	protected lineItemService_: LineItemService;
 	protected emailsService_: EmailsService;
+	protected readonly featureFlagRouter_: FlagRouter;
 
 	constructor({
 		supplierOrderRepository,
@@ -47,6 +50,7 @@ class SupplierOrderService extends TransactionBaseService {
 		regionService,
 		lineItemService,
 		emailsService,
+		featureFlagRouter,
 	}: InjectedDependencies) {
 		super(arguments[0]);
 
@@ -57,6 +61,7 @@ class SupplierOrderService extends TransactionBaseService {
 		this.regionService_ = regionService;
 		this.lineItemService_ = lineItemService;
 		this.emailsService_ = emailsService;
+		this.featureFlagRouter_ = featureFlagRouter;
 	}
 
 	async retrieve(
@@ -152,7 +157,7 @@ class SupplierOrderService extends TransactionBaseService {
 				// Add the line item to the cart
 				return await this.cartService_
 					.withTransaction(transactionManager)
-					.addOrUpdateLineItems(cart.id, line);
+					.addOrUpdateLineItemsSupplierOrder(cart.id, line);
 			})
 		);
 		// Retrieve the cart with the items
