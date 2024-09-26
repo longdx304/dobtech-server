@@ -4,7 +4,7 @@ on:
     branches: ['main']
 jobs:
   build:
-    runs-on: self-hosted
+    runs-on: cloud
     strategy:
       matrix:
         node-version: [20.x]
@@ -36,7 +36,7 @@ jobs:
             package-lock.json
 
   deploy:
-    runs-on: self-hosted
+    runs-on: cloud
     needs: [build]
     steps:
       - name: Download artifact
@@ -49,13 +49,13 @@ jobs:
         run: |
           # Ensure the deployment directory exists
           mkdir -p ~/dob-server
-          
+
           # Copy new files to the deployment directory
           cp -R dist/* ~/dob-server/ || echo "No dist directory found"
           cp .env ~/dob-server/ || echo "No .env file found"
           cp package.json ~/dob-server/ || echo "No package.json found"
           cp package-lock.json ~/dob-server/ || echo "No package-lock.json found"
-          
+
           # Navigate to the deployment directory
           cd ~/dob-server
       - name: Install dependencies for staging deployment
