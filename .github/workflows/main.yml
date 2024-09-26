@@ -4,7 +4,7 @@ on:
     branches: ['main']
 jobs:
   build:
-    runs-on: cloud
+    runs-on: ["self-hosted", "staging"]
     strategy:
       matrix:
         node-version: [20.x]
@@ -36,7 +36,7 @@ jobs:
             package-lock.json
 
   deploy:
-    runs-on: cloud
+    runs-on: ["self-hosted", "staging"]
     needs: [build]
     steps:
       - name: Download artifact
