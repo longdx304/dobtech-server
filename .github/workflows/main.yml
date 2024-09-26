@@ -59,7 +59,14 @@ jobs:
           # Navigate to the deployment directory
           cd ~/dob-server
       - name: Install dependencies for staging deployment
-        run: npm ci
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "PATH: $PATH"
+          echo "Current user: $(whoami)"
+          echo "NVM_DIR: $NVM_DIR"
+          which node || echo "node not found in PATH"
+          which npm || echo "npm not found in PATH"
+          npm ci
       - name: Deploy to staging pm2
         run: |
           # Restart or start the PM2 process
