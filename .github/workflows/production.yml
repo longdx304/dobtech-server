@@ -58,8 +58,6 @@ jobs:
 
           # Navigate to the deployment directory
           cd ~/dob-server
-      # - name: Install dependencies for production deployment
-      #   run: npm ci
       - name: Install dependencies for production deployment
         run: |
           # Restart or start the PM2 process
