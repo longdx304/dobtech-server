@@ -245,8 +245,7 @@ class SupplierOrderService extends TransactionBaseService {
 
 				// Send email to the supplier and admin
 				await this.emailsService_.sendEmail(
-					// supplierOrderWithRelations.supplier.email,
-					'ducnam1719@gmail.com',
+					supplierOrderWithRelations.supplier.email,
 					'supplier.order_created',
 					supplierOrderWithRelations,
 					optionsEmail
