@@ -4,7 +4,7 @@ on:
     branches: ['production']
 jobs:
   build:
-    runs-on: ["self-hosted", "production"]
+    runs-on: ["self-hosted", "ubuntu"]
     strategy:
       matrix:
         node-version: [20.x]
@@ -36,7 +36,7 @@ jobs:
             package-lock.json
 
   deploy:
-    runs-on: ["self-hosted", "production"]
+    runs-on: ["self-hosted", "ubuntu"]
     needs: [build]
     steps:
       - name: Download artifact
@@ -45,7 +45,7 @@ jobs:
           name: dist
       - name: List contents of current directory
         run: ls -la
-      - name: Copy files to production
+      - name: Copy files to Production
         run: |
           # Ensure the deployment directory exists
           mkdir -p ~/dob-server
@@ -58,9 +58,23 @@ jobs:
 
           # Navigate to the deployment directory
           cd ~/dob-server
-      - name: Install dependencies for production deployment
-        run: npm ci
-      - name: Deploy to production pm2
+      - name: Install dependencies for Production deployment
+        run: |
+          echo "Current user: $(whoami)"
+          echo "Current directory: $(pwd)"
+          echo "PATH: $PATH"
+          echo "NVM_DIR: $NVM_DIR"
+          which node || echo "node not found in PATH"
+          which npm || echo "npm not found in PATH"
+          su dobtech 
+          echo "Current user: $(whoami)"
+          echo "Current directory: $(pwd)"
+          echo "PATH: $PATH"
+          echo "NVM_DIR: $NVM_DIR"
+          which node || echo "node not found in PATH"
+          which npm || echo "npm not found in PATH"
+          npm ci
+      - name: Deploy to Production pm2
         run: |
           # Restart or start the PM2 process
           if pm2 list | grep -q "backend"; then
