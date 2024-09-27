@@ -1,6 +1,6 @@
 name: Production CI/CD
 on:
-  pull_request:
+  push:
     branches: ['production']
 jobs:
   build:
