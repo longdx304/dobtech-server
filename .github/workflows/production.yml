@@ -64,15 +64,6 @@ jobs:
           echo "Current directory: $(pwd)"
           echo "PATH: $PATH"
           echo "NVM_DIR: $NVM_DIR"
-          which node || echo "node not found in PATH"
-          which npm || echo "npm not found in PATH"
-          su dobtech 
-          echo "Current user: $(whoami)"
-          echo "Current directory: $(pwd)"
-          echo "PATH: $PATH"
-          echo "NVM_DIR: $NVM_DIR"
-          which node || echo "node not found in PATH"
-          which npm || echo "npm not found in PATH"
           npm ci
       - name: Deploy to Production pm2
         run: |
