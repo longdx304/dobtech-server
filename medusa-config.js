@@ -87,6 +87,14 @@ const projectConfig = {
   // database_url: TEST_DATABASE_URL,
   admin_cors: ADMIN_CORS,
   redis_url: REDIS_URL,
+  session_options: {
+    secret: process.env.COOKIE_SECRET,
+    name: "connect.sid",
+    resave: true,
+    rolling: true,
+    saveUninitialized: true,
+    ttl: 3600,
+  }   
 };
 
 const featureFlags = {
