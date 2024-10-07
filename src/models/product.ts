@@ -1,8 +1,8 @@
-import { Column, Entity, OneToMany } from "typeorm";
 import {
-	// alias the core entity to not cause a naming conflict
-	Product as MedusaProduct,
+  // alias the core entity to not cause a naming conflict
+  Product as MedusaProduct,
 } from "@medusajs/medusa";
+import { Entity, OneToMany } from "typeorm";
 import { ProductVariant } from "./product-variant";
 
 @Entity()

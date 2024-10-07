@@ -93,7 +93,7 @@ const projectConfig = {
     resave: true,
     rolling: true,
     saveUninitialized: true,
-    ttl: 3600,
+    ttl: 60 * 60 * 24 * 7 * 1000,
   }   
 };
 

@@ -13,12 +13,13 @@ import SupplierOrderRepository from 'src/repositories/supplier-order';
 import {
 	CreateSupplierOrderInput,
 	SupplierOrderSelector,
+	UpdateSupplierOrderInput,
 } from 'src/types/supplier-orders';
+import { FlagRouter } from 'src/utils/flag-router';
 import { EntityManager } from 'typeorm';
+import MyCartService from './cart';
 import EmailsService from './emails';
 import SupplierOrderDocumentService from './supplier-order-document';
-import MyCartService from './cart';
-import { FlagRouter } from 'src/utils/flag-router';
 
 type InjectedDependencies = {
 	manager: EntityManager;
@@ -255,6 +256,113 @@ class SupplierOrderService extends TransactionBaseService {
 			}
 		);
 	}
+
+	/**
+	 * Update a cart with the line items in the input
+	 * @param {EntityManager} transactionManager The transaction manager
+	 * @param {UpdateSupplierOrderInput} data The input data
+	 * @returns {Promise<Cart>} The updated cart
+	 */
+	async updateCartWithLineItems(
+		transactionManager: EntityManager,
+		data: UpdateSupplierOrderInput
+	): Promise<Cart> {
+		const { cartId, lineItems, metadata } = data;
+
+		// Retrieve the cart
+		let cart = await this.cartService_
+			.withTransaction(transactionManager)
+			.retrieve(cartId, {
+				relations: ['region'],
+			});
+
+		// Add line items in the cart
+		await Promise.all(
+			lineItems.map(async (lineItem) => {
+				// Generate a line item from the variant
+				const line = await this.lineItemService_
+					.withTransaction(transactionManager)
+					.generate(lineItem, {
+						region_id: cart.region_id,
+						unit_price: lineItem?.unit_price,
+						metadata
+					});
+				// Add the line item to the cart
+				return await this.cartService_
+					.withTransaction(transactionManager)
+					.addOrUpdateLineItemsSupplierOrder(cartId, line);
+			})
+		);
+
+		// Retrieve and return the updated cart
+		return await this.cartService_
+			.withTransaction(transactionManager)
+			.retrieve(cartId, {
+				relations: [
+					'items',
+					'items.variant',
+					'items.variant.product',
+					'region',
+				],
+			});
+	}
+
+	/**
+	 * Creates a supplier order
+	 * @param {UpdateSupplierOrderInput} data The input data
+	 * @returns {Promise<SupplierOrder>} The created supplier order
+	 */
+	async update(
+		id: string,
+		data: UpdateSupplierOrderInput
+	): Promise<SupplierOrder> {
+		return await this.atomicPhase_(
+			async (transactionManager: EntityManager) => {
+				// Retrieve the existing supplier order
+				const existingSupplierOrder = await this.retrieve(id);
+				if (!existingSupplierOrder) {
+					throw new MedusaError(
+						MedusaError.Types.NOT_FOUND,
+						`Đơn hàng với mã số ${id} không được tìm thấy`
+					);
+				}
+
+				// Update the cart with new line items
+				await this.updateCartWithLineItems(transactionManager, data);
+
+				// Retrieve the updated supplier order
+				const updatedSupplierOrder = await this.retrieve(id);
+				return updatedSupplierOrder;
+			}
+		);
+	}
+
+	async deleteLineItem(
+    supplierOrderId: string,
+    lineItemId: string
+  ): Promise<SupplierOrder> {
+    return await this.atomicPhase_(
+      async (transactionManager: EntityManager) => {
+        // Retrieve the existing supplier order
+        const existingSupplierOrder = await this.retrieve(supplierOrderId);
+        if (!existingSupplierOrder) {
+          throw new MedusaError(
+            MedusaError.Types.NOT_FOUND,
+            `Supplier order with id ${supplierOrderId} not found`
+          );
+        }
+
+        // Remove the line item from the cart
+        await this.cartService_
+          .withTransaction(transactionManager)
+          .removeLineItem(existingSupplierOrder.cart_id, lineItemId);
+
+        // Retrieve and return the updated supplier order
+        const updatedSupplierOrder = await this.retrieve(supplierOrderId);
+        return updatedSupplierOrder;
+      }
+    );
+  }
 }
 
 export default SupplierOrderService;
