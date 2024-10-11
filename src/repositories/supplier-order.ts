@@ -1,14 +1,10 @@
-import { dataSource } from '@medusajs/medusa/dist/loaders/database';
-import { SupplierOrder } from '../models/supplier-order';
-import {
-	FindManyOptions,
-	FindOptionsRelations,
-	FindOptionsWhere,
-	ILike,
-	In,
-} from 'typeorm';
-import { flatten, groupBy, map, merge } from 'lodash';
 import { ExtendedFindConfig } from '@medusajs/medusa';
+import { dataSource } from '@medusajs/medusa/dist/loaders/database';
+import {
+	FindOptionsWhere,
+	ILike
+} from 'typeorm';
+import { SupplierOrder } from '../models/supplier-order';
 
 const SupplierOrderRepository = dataSource.getRepository(SupplierOrder).extend({
 	async listAndCount(

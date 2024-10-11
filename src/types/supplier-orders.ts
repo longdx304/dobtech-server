@@ -47,7 +47,7 @@ export type CreateSupplierOrderInput = {
 };
 
 export type UpdateSupplierOrderInput = {
-	cartId: string;
+	cartId?: string;
 	lineItems: LineItem[];
 	metadata?: Record<string, unknown>;
 };
@@ -72,7 +72,6 @@ export type SupplierOrderSelector = {
 	q?: string;
 };
 
-
 export interface DeleteLineItemRequest {
-  lineItemId: string;
+	lineItemId: string;
 }

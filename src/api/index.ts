@@ -24,3 +24,5 @@ registerExtendedValidator(StorePostCartReq);
 registerExtendedValidator(AdminPostProductsReq);
 registerExtendedValidator(AdminPostProductsProductVariantsReq);
 registerExtendedValidator(AdminPostProductsProductVariantsVariantReq);
+
+

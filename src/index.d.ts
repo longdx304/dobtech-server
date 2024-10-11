@@ -1,3 +1,4 @@
+import { ProductVariant } from '@medusajs/medusa/dist/models/product-variant';
 export declare module '@medusajs/medusa/dist/models/user' {
 	declare interface User {
 		phone: string;
@@ -12,9 +13,14 @@ export declare module '@medusajs/medusa/dist/models/product-variant' {
 	}
 }
 
-import { ProductVariant } from '@medusajs/medusa/dist/models/product-variant';
 export declare module '@medusajs/medusa/dist/models/product' {
 	declare interface Product {
 		variants: Relation<ProductVariant>[];
+	}
+}
+
+export declare module '@medusajs/medusa/dist/models/order-edit' {
+	declare interface OrderEdit {
+		supplier_order_id: string;
 	}
 }

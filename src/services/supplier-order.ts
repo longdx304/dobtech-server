@@ -2,6 +2,7 @@ import {
 	buildQuery,
 	Cart,
 	FindConfig,
+	LineItem,
 	LineItemService,
 	OrderService,
 	RegionService,
@@ -20,10 +21,12 @@ import { EntityManager } from 'typeorm';
 import MyCartService from './cart';
 import EmailsService from './emails';
 import SupplierOrderDocumentService from './supplier-order-document';
+import LineItemRepository from '@medusajs/medusa/dist/repositories/line-item';
 
 type InjectedDependencies = {
 	manager: EntityManager;
 	supplierOrderRepository: typeof SupplierOrderRepository;
+	lineItemRepository: typeof LineItemRepository;
 	orderService: OrderService;
 	supplierOrderDocumentService: SupplierOrderDocumentService;
 	cartService: MyCartService;
@@ -35,6 +38,7 @@ type InjectedDependencies = {
 
 class SupplierOrderService extends TransactionBaseService {
 	protected supplierOrderRepository_: typeof SupplierOrderRepository;
+	protected lineItemRepository_: typeof LineItemRepository;
 	protected orderService_: OrderService;
 	protected supplierOrderDocumentService_: SupplierOrderDocumentService;
 	protected cartService_: MyCartService;
@@ -45,6 +49,7 @@ class SupplierOrderService extends TransactionBaseService {
 
 	constructor({
 		supplierOrderRepository,
+		lineItemRepository,
 		supplierOrderDocumentService,
 		orderService,
 		cartService,
@@ -56,6 +61,7 @@ class SupplierOrderService extends TransactionBaseService {
 		super(arguments[0]);
 
 		this.supplierOrderRepository_ = supplierOrderRepository;
+		this.lineItemRepository_ = lineItemRepository;
 		this.supplierOrderDocumentService_ = supplierOrderDocumentService;
 		this.orderService_ = orderService;
 		this.cartService_ = cartService;
@@ -81,7 +87,7 @@ class SupplierOrderService extends TransactionBaseService {
 
 		const supplierOrder = await supplierOrderRepo.findOne({
 			where: { id },
-			relations: ['supplier', 'user', 'cart', 'documents'],
+			relations: ['supplier', 'user', 'cart', 'documents', 'items'],
 		});
 
 		return supplierOrder;
@@ -193,6 +199,11 @@ class SupplierOrderService extends TransactionBaseService {
 				const supplierOrderRepository = transactionManager.withRepository(
 					this.supplierOrderRepository_
 				);
+				// const lineItemRepository = transactionManager.withRepository(
+				// 	this.lineItemRepository_
+				// );
+				const LineItemService =
+					this.lineItemService_.withTransaction(transactionManager);
 				const {
 					supplierId,
 					userId,
@@ -220,6 +231,11 @@ class SupplierOrderService extends TransactionBaseService {
 				const supplierOrder = await supplierOrderRepository.save(
 					createSupplierOrder
 				);
+
+				// Update line items with the supplier_order_id
+				await LineItemService.update({ cart_id: cart.id }, {
+					supplier_order_id: supplierOrder.id,
+				} as any);
 
 				// retrieve supplier, user, cart
 				const supplierOrderWithRelations = await this.retrieve(
@@ -285,7 +301,7 @@ class SupplierOrderService extends TransactionBaseService {
 					.generate(lineItem, {
 						region_id: cart.region_id,
 						unit_price: lineItem?.unit_price,
-						metadata
+						metadata,
 					});
 				// Add the line item to the cart
 				return await this.cartService_
@@ -338,31 +354,44 @@ class SupplierOrderService extends TransactionBaseService {
 	}
 
 	async deleteLineItem(
-    supplierOrderId: string,
-    lineItemId: string
-  ): Promise<SupplierOrder> {
-    return await this.atomicPhase_(
-      async (transactionManager: EntityManager) => {
-        // Retrieve the existing supplier order
-        const existingSupplierOrder = await this.retrieve(supplierOrderId);
-        if (!existingSupplierOrder) {
-          throw new MedusaError(
-            MedusaError.Types.NOT_FOUND,
-            `Supplier order with id ${supplierOrderId} not found`
-          );
-        }
+		supplierOrderId: string,
+		lineItemId: string
+	): Promise<SupplierOrder> {
+		return await this.atomicPhase_(
+			async (transactionManager: EntityManager) => {
+				// Retrieve the existing supplier order
+				const existingSupplierOrder = await this.retrieve(supplierOrderId);
+				if (!existingSupplierOrder) {
+					throw new MedusaError(
+						MedusaError.Types.NOT_FOUND,
+						`Supplier order with id ${supplierOrderId} not found`
+					);
+				}
 
-        // Remove the line item from the cart
-        await this.cartService_
-          .withTransaction(transactionManager)
-          .removeLineItem(existingSupplierOrder.cart_id, lineItemId);
+				// Remove the line item from the cart
+				await this.cartService_
+					.withTransaction(transactionManager)
+					.removeLineItem(existingSupplierOrder.cart_id, lineItemId);
 
-        // Retrieve and return the updated supplier order
-        const updatedSupplierOrder = await this.retrieve(supplierOrderId);
-        return updatedSupplierOrder;
-      }
-    );
-  }
+				// Retrieve and return the updated supplier order
+				const updatedSupplierOrder = await this.retrieve(supplierOrderId);
+				return updatedSupplierOrder;
+			}
+		);
+	}
+
+	async retrieveLineItemsById(
+		supplierOrderId: string
+	): Promise<LineItem[] | undefined> {
+		const lineItemRepo = this.activeManager_.withRepository(
+			this.lineItemRepository_
+		);
+
+		const lineItems = await lineItemRepo.find({
+			where: { supplier_order_id: supplierOrderId } as any,
+		});
+		return lineItems;
+	}
 }
 
 export default SupplierOrderService;

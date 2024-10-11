@@ -1,0 +1,34 @@
+import { MedusaRequest, MedusaResponse } from '@medusajs/medusa';
+import MyOrderEditService from 'src/services/my-order-edit';
+import { AddOrderEditLineItemInput } from 'src/types/order-edits';
+import { UpdateSupplierOrderInput } from 'src/types/supplier-orders';
+import { EntityManager } from 'typeorm';
+
+export async function POST(req: MedusaRequest, res: MedusaResponse) {
+	const myOrderEditService: MyOrderEditService =
+		req.scope.resolve('myOrderEditService');
+	const manager: EntityManager = req.scope.resolve('manager');
+
+	const { id } = req.params;
+	const data = req.validatedBody as AddOrderEditLineItemInput;
+
+	try {
+		await manager.transaction(async (transactionManager) => {
+			await myOrderEditService
+				.withTransaction(transactionManager)
+				.addLineItemSupplierOrderEdit(id, data);
+		});
+
+		let orderEdit = await myOrderEditService.retrieveSupplierOrderEdit(id, {});
+
+		orderEdit = await myOrderEditService.decorateTotalsSupplierOrderEdit(
+			orderEdit
+		);
+
+		res.status(200).send({
+			order_edit: orderEdit,
+		});
+	} catch (error) {
+		return res.status(400).json({ error: error.message });
+	}
+}

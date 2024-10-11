@@ -32,6 +32,7 @@ export class CreateSupplierOrder1725865387344 implements MigrationInterface {
 		await queryRunner.query(`CREATE INDEX "idx_supplier_order_user_id" ON "supplier_order" ("user_id")`);
 		await queryRunner.query(`CREATE INDEX "idx_supplier_order_display_id" ON "supplier_order" ("display_id")`);
 		await queryRunner.query(`CREATE INDEX "idx_supplier_order_cart_id" ON "supplier_order" ("cart_id")`);
+		// await queryRunner.query(`CREATE INDEX "idx_supplier_order_region_id" ON "supplier_order" ("region_id")`);
 	}
 
 	public async down(queryRunner: QueryRunner): Promise<void> {
@@ -39,6 +40,7 @@ export class CreateSupplierOrder1725865387344 implements MigrationInterface {
 		await queryRunner.query(`DROP INDEX "idx_supplier_order_cart_id"`);
 		await queryRunner.query(`DROP INDEX "idx_supplier_order_display_id"`);
 		await queryRunner.query(`DROP INDEX "idx_supplier_order_user_id"`);
+		// await queryRunner.query(`DROP INDEX "idx_supplier_order_region_id"`);
 
 		// Delete table
 		await queryRunner.query(`DROP TABLE "supplier_order"`);

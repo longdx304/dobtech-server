@@ -16,9 +16,11 @@ import {
 	OneToMany,
 	OneToOne,
 } from 'typeorm';
+import { LineItem } from './line-item';
+import { OrderEdit } from './order-edit';
 import { Supplier } from './supplier';
-import { User } from './user';
 import { SupplierOrderDocument } from './supplier-order-document';
+import { User } from './user';
 
 export enum OrderStatus {
 	PENDING = 'pending',
@@ -60,7 +62,6 @@ export class SupplierOrder extends BaseEntity {
 	supplier_id: string;
 
 	@OneToOne(() => Supplier)
-	// @OneToOne(() => Supplier, { cascade: ['insert', 'remove'] })
 	@JoinColumn({ name: 'supplier_id' })
 	supplier: Supplier;
 
@@ -112,6 +113,14 @@ export class SupplierOrder extends BaseEntity {
 		cascade: ['insert', 'remove'],
 	})
 	documents: SupplierOrderDocument[];
+
+	@OneToMany(() => OrderEdit, (oe) => oe.supplier_order)
+	edits: OrderEdit[];
+
+	@OneToMany(() => LineItem, (lineItem) => lineItem.supplier_order, {
+		cascade: ['insert'],
+	})
+	items: LineItem[];
 
 	@BeforeInsert()
 	private async beforeInsert(): Promise<void> {
