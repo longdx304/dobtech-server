@@ -27,7 +27,7 @@ import {
 	EntityManager,
 	FindOptionsWhere,
 	ILike,
-	IsNull
+	IsNull,
 } from 'typeorm';
 
 import { IInventoryService } from '@medusajs/types';
@@ -524,14 +524,6 @@ export default class MyOrderEditService extends TransactionBaseService {
 				'items.tax_lines',
 				'supplier_order',
 				'supplier_order.cart.region',
-				// 'order',
-				// 'order.customer',
-				// 'order.discounts',
-				// 'order.discounts.rule',
-				// 'order.gift_cards',
-				// 'order.region',
-				// 'order.shipping_address',
-				// 'order.shipping_methods',
 			],
 		});
 
@@ -592,13 +584,9 @@ export default class MyOrderEditService extends TransactionBaseService {
 					'items.adjustments',
 					'items.variant',
 					'region.tax_rates',
-					'shipping_methods',
-					'shipping_methods.tax_lines',
 				],
 			}
 		);
-
-		console.log('supplier order decorated', supplierOrder);
 
 		const computedOrder = {
 			...supplierOrder,

@@ -1,8 +1,11 @@
 import {
 	BaseEntity,
 	Cart,
+	Currency,
 	DbAwareColumn,
 	generateEntityId,
+	Payment,
+	Region,
 	resolveDbGenerationStrategy,
 	resolveDbType,
 } from '@medusajs/medusa';
@@ -13,6 +16,7 @@ import {
 	Generated,
 	Index,
 	JoinColumn,
+	ManyToOne,
 	OneToMany,
 	OneToOne,
 } from 'typeorm';
@@ -94,11 +98,32 @@ export class SupplierOrder extends BaseEntity {
 	@DbAwareColumn({ type: 'enum', enum: PaymentStatus, default: 'not_paid' })
 	payment_status: PaymentStatus;
 
+	@OneToMany(() => Payment, (payment) => payment.supplier_order, {
+		cascade: ['insert'],
+	})
+	payments: Payment[];
+
 	@Column({ type: resolveDbType('timestamptz') })
 	estimated_production_time: Date;
 
 	@Column({ type: resolveDbType('timestamptz') })
 	settlement_time: Date;
+
+	@Index()
+	@Column()
+	region_id: string;
+
+	@ManyToOne(() => Region)
+	@JoinColumn({ name: 'region_id' })
+	region: Region;
+
+	@Index()
+	@Column()
+	currency_code: string;
+
+	@ManyToOne(() => Currency)
+	@JoinColumn({ name: 'currency_code', referencedColumnName: 'code' })
+	currency: Currency;
 
 	@Column({ nullable: true, type: resolveDbType('timestamptz') })
 	tax_rate: number;
@@ -121,6 +146,13 @@ export class SupplierOrder extends BaseEntity {
 		cascade: ['insert'],
 	})
 	items: LineItem[];
+
+	// Total fields
+	shipping_total: number;
+	tax_total: number | null;
+	total: number;
+	subtotal: number;
+	paid_total: number;
 
 	@BeforeInsert()
 	private async beforeInsert(): Promise<void> {

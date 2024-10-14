@@ -1,4 +1,9 @@
-import { MedusaRequest, MedusaResponse } from '@medusajs/medusa';
+import {
+	cleanResponseData,
+	MedusaRequest,
+	MedusaResponse,
+} from '@medusajs/medusa';
+import { SupplierOrder } from 'src/models/supplier-order';
 import SupplierOrderService from 'src/services/supplier-order';
 import {
 	DeleteLineItemRequest,
@@ -12,15 +17,14 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
 	const { id } = req.params;
 
 	try {
-		const supplierOrder = await supplierOrderService.retrieve(id);
+		let supplierOrder: Partial<SupplierOrder> =
+			await supplierOrderService.retrieveWithTotals(id, req.retrieveConfig, {
+				includes: req.includes,
+			});
 
-		if (!supplierOrder) {
-			return res
-				.status(404)
-				.json({ error: 'Không tìm thấy đơn hàng của nhà cung cấp' });
-		}
+		supplierOrder = cleanResponseData(supplierOrder, req.allowedProperties);
 
-		return res.status(200).json({ supplierOrder });
+		res.json({ supplierOrder: cleanResponseData(supplierOrder, []) });
 	} catch (error) {
 		return res.status(404).json({ error: error.message });
 	}

@@ -40,6 +40,8 @@ export type CreateSupplierOrderInput = {
 	userId: string;
 	email: string;
 	countryCode: string;
+	region_id: string;
+	currency_code: string;
 	estimated_production_time: Date;
 	settlement_time: Date;
 	document_url: string;

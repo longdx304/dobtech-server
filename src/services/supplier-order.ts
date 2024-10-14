@@ -4,11 +4,18 @@ import {
 	FindConfig,
 	LineItem,
 	LineItemService,
+	NewTotalsService,
 	OrderService,
 	RegionService,
+	TotalsService,
 	TransactionBaseService,
 } from '@medusajs/medusa';
-import { isDefined, MedusaError } from '@medusajs/utils';
+import {
+	buildRelations,
+	buildSelects,
+	isDefined,
+	MedusaError,
+} from '@medusajs/utils';
 import { SupplierOrder } from 'src/models/supplier-order';
 import SupplierOrderRepository from 'src/repositories/supplier-order';
 import {
@@ -22,6 +29,7 @@ import MyCartService from './cart';
 import EmailsService from './emails';
 import SupplierOrderDocumentService from './supplier-order-document';
 import LineItemRepository from '@medusajs/medusa/dist/repositories/line-item';
+import { TotalsContext } from '@medusajs/medusa/dist/types/orders';
 
 type InjectedDependencies = {
 	manager: EntityManager;
@@ -33,6 +41,7 @@ type InjectedDependencies = {
 	regionService: RegionService;
 	lineItemService: LineItemService;
 	emailsService: EmailsService;
+	totalsService: TotalsService;
 	featureFlagRouter: FlagRouter;
 };
 
@@ -45,6 +54,8 @@ class SupplierOrderService extends TransactionBaseService {
 	protected regionService_: RegionService;
 	protected lineItemService_: LineItemService;
 	protected emailsService_: EmailsService;
+	protected readonly newTotalsService_: NewTotalsService;
+	protected readonly totalsService_: TotalsService;
 	protected readonly featureFlagRouter_: FlagRouter;
 
 	constructor({
@@ -56,6 +67,7 @@ class SupplierOrderService extends TransactionBaseService {
 		regionService,
 		lineItemService,
 		emailsService,
+		totalsService,
 		featureFlagRouter,
 	}: InjectedDependencies) {
 		super(arguments[0]);
@@ -68,6 +80,7 @@ class SupplierOrderService extends TransactionBaseService {
 		this.regionService_ = regionService;
 		this.lineItemService_ = lineItemService;
 		this.emailsService_ = emailsService;
+		this.totalsService_ = totalsService;
 		this.featureFlagRouter_ = featureFlagRouter;
 	}
 
@@ -81,16 +94,61 @@ class SupplierOrderService extends TransactionBaseService {
 				`"supplier_order_id" must be defined`
 			);
 		}
+
+		const { totalsToSelect } = this.transformQueryForTotals(config);
+
 		const supplierOrderRepo = this.activeManager_.withRepository(
 			this.supplierOrderRepository_
 		);
 
-		const supplierOrder = await supplierOrderRepo.findOne({
-			where: { id },
-			relations: ['supplier', 'user', 'cart', 'documents', 'items'],
-		});
+		// const supplierOrder = await supplierOrderRepo.findOne({
+		// 	where: { id },
+		// 	relations: ['supplier', 'user', 'cart', 'documents', 'items'],
+		// });
 
-		return supplierOrder;
+		// return supplierOrder;
+
+		const query = buildQuery({ id: id }, config);
+
+		if (!(config.select || []).length) {
+			query.select = undefined;
+		}
+		const queryRelations = {
+			...query.relations,
+			documents: true,
+			supplier: true,
+			user: true,
+		};
+		delete query.relations;
+
+		const raw = await supplierOrderRepo.findOneWithRelations(
+			queryRelations,
+			query
+		);
+
+		if (!raw) {
+			throw new MedusaError(
+				MedusaError.Types.NOT_FOUND,
+				`Order with id ${id} was not found`
+			);
+		}
+
+		return raw;
+	}
+
+	async retrieveWithTotals(
+		orderId: string,
+		options: FindConfig<SupplierOrder> = {},
+		context: TotalsContext = {}
+	): Promise<SupplierOrder> {
+		const relations = this.getTotalsRelations(options);
+		const supplierOrder = await this.retrieve(orderId, {
+			...options,
+			relations,
+		});
+		console.log('retrieve totals', relations);
+
+		return await this.decorateTotals(supplierOrder, context);
 	}
 
 	async list(
@@ -123,12 +181,85 @@ class SupplierOrderService extends TransactionBaseService {
 		const supplierOrderRepo = this.activeManager_.withRepository(
 			this.supplierOrderRepository_
 		);
+		console.log('selector', selector);
 
 		const { q, ...supplierOrderSelectorRest } = selector;
+		console.log('supplierOrderSelectorRest', supplierOrderSelectorRest);
 
 		const query = buildQuery(supplierOrderSelectorRest, config);
 
-		return await supplierOrderRepo.listAndCount(query, q);
+		// Get totals relations and transform query for totals
+		const { select, relations } = this.transformQueryForTotals(config);
+		query.select = buildSelects(select || []); // Select necessary fields
+		const rels = buildRelations(this.getTotalsRelations({ relations })); // Get necessary relations
+
+		// Remove original relations from the query to avoid conflicts
+		delete query.relations;
+
+		// Fetch the results with relations
+		const raw = await supplierOrderRepo.findWithRelations(rels, query);
+		const count = await supplierOrderRepo.count(query);
+
+		// Decorate totals if required (example of a placeholder function for calculating totals)
+		const supplierOrders = await Promise.all(
+			raw.map(async (r) => await this.decorateTotals(r, select))
+		);
+
+
+		// Return the orders along with the count
+		return [supplierOrders, count];
+	}
+
+	protected transformQueryForTotals(config: FindConfig<SupplierOrder>): {
+		relations: string[] | undefined;
+		select: FindConfig<SupplierOrder>['select'];
+		totalsToSelect: FindConfig<SupplierOrder>['select'];
+	} {
+		let { select, relations } = config;
+		console.log('config transform', config);
+
+		if (!select) {
+			console.log('none');
+			return {
+				select,
+				relations,
+				totalsToSelect: [],
+			};
+		}
+
+		const totalFields = [
+			'subtotal',
+			'tax_total',
+			'total',
+			'paid_total',
+			'items.refundable',
+		];
+
+		const totalsToSelect = select.filter((v) => totalFields.includes(v));
+		if (totalsToSelect.length > 0) {
+			const relationSet = new Set(relations);
+			relationSet.add('items');
+			relationSet.add('items.tax_lines');
+			relationSet.add('items.adjustments');
+			relationSet.add('items.variant');
+			relationSet.add('items.variant.product');
+			relationSet.add('region');
+			relations = [...relationSet];
+
+			select = select.filter((v) => !totalFields.includes(v));
+		}
+
+		const toSelect = [...select];
+		console.log('toSelect', toSelect);
+		if (toSelect.length > 0 && toSelect.indexOf('tax_rate') === -1) {
+			toSelect.push('tax_rate');
+		}
+
+		return {
+			relations,
+			select: toSelect.length ? toSelect : undefined,
+			totalsToSelect,
+		};
 	}
 
 	/**
@@ -199,17 +330,18 @@ class SupplierOrderService extends TransactionBaseService {
 				const supplierOrderRepository = transactionManager.withRepository(
 					this.supplierOrderRepository_
 				);
-				// const lineItemRepository = transactionManager.withRepository(
-				// 	this.lineItemRepository_
-				// );
+
+				console.log('data service', data);
 				const LineItemService =
 					this.lineItemService_.withTransaction(transactionManager);
 				const {
 					supplierId,
 					userId,
 					document_url,
+					region_id,
 					estimated_production_time,
 					settlement_time,
+					currency_code,
 				} = data;
 
 				// Create a cart for the user
@@ -222,6 +354,8 @@ class SupplierOrderService extends TransactionBaseService {
 					supplier_id: supplierId,
 					user_id: userId,
 					cart_id: cart.id,
+					region_id,
+					currency_code,
 					estimated_production_time,
 					settlement_time,
 				};
@@ -391,6 +525,77 @@ class SupplierOrderService extends TransactionBaseService {
 			where: { supplier_order_id: supplierOrderId } as any,
 		});
 		return lineItems;
+	}
+
+	async decorateTotals(
+		supplierOrder: SupplierOrder,
+		totalsFields?: string[]
+	): Promise<SupplierOrder>;
+
+	async decorateTotals(
+		supplierOrder: SupplierOrder,
+		context?: TotalsContext
+	): Promise<SupplierOrder>;
+
+	/**
+	 * Calculate and attach the different total fields on the object
+	 * @param supplierOrder
+	 * @param totalsFieldsOrContext
+	 */
+	async decorateTotals(
+		supplierOrder: SupplierOrder,
+		totalsFieldsOrContext?: string[] | TotalsContext
+	): Promise<SupplierOrder> {
+		// const newTotalsServiceTx = this.newTotalsService_.withTransaction(
+		// 	this.activeManager_
+		// );
+
+		// console.log('newTotalsServiceTx', newTotalsServiceTx);
+
+		const allItems: LineItem[] = [...(supplierOrder.items ?? [])];
+
+		// const itemsTotals = await newTotalsServiceTx.getLineItemTotals(allItems, {
+		// 	taxRate: supplierOrder.tax_rate,
+		// 	includeTax: true,
+		// 	calculationContext,
+		// });
+
+		supplierOrder.subtotal = 0;
+
+		supplierOrder.paid_total =
+			supplierOrder.payments?.reduce((acc, next) => (acc += next.amount), 0) ||
+			0;
+
+		let item_tax_total = 0;
+
+		supplierOrder.items = (supplierOrder.items || []).map((item) => {
+			item.quantity = item.quantity - (item.returned_quantity || 0);
+
+			// Object.assign(item, itemsTotals[item.id] ?? {}, { returned_quantity: 0 });
+
+			item.subtotal = item.unit_price * item.quantity;
+			supplierOrder.subtotal += item.subtotal ?? 0;
+
+			return item;
+		});
+
+		supplierOrder.tax_total = item_tax_total;
+
+		supplierOrder.total = supplierOrder.subtotal + supplierOrder.tax_total;
+
+		return supplierOrder;
+	}
+
+	private getTotalsRelations(config: FindConfig<SupplierOrder>): string[] {
+		const relationSet = new Set(config.relations);
+
+		relationSet.add('items');
+		relationSet.add('items.tax_lines');
+		relationSet.add('items.adjustments');
+		relationSet.add('items.variant');
+		relationSet.add('region');
+
+		return Array.from(relationSet.values());
 	}
 }
 
