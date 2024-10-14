@@ -22,5 +22,13 @@ export declare module '@medusajs/medusa/dist/models/product' {
 export declare module '@medusajs/medusa/dist/models/order-edit' {
 	declare interface OrderEdit {
 		supplier_order_id: string;
+		supplier_order: SupplierOrder;
+	}
+}
+
+export declare module '@medusajs/medusa/dist/models/payment' {
+	declare interface Payment {
+		supplier_order_id: string;
+		supplier_order: SupplierOrder;
 	}
 }

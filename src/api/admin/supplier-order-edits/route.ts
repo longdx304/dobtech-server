@@ -1,6 +1,10 @@
 import { MedusaRequest, MedusaResponse } from '@medusajs/medusa';
 import MyOrderEditService from 'src/services/my-order-edit';
 import { EntityManager } from 'typeorm';
+import {
+	defaultOrderEditFields,
+	defaultOrderEditRelations,
+} from '../../../types/my-order-edits';
 
 export async function GET(req: MedusaRequest, res: MedusaResponse) {
 	const myOrderEditService: MyOrderEditService =
@@ -20,15 +24,9 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
 		...(supplier_order_id && { supplier_order_id }),
 	};
 
-	const listConfig = {
-		skip: offset,
-		take: limit,
-	};
-
 	try {
 		const [orderEdits, orderEditCount] = await myOrderEditService.listAndCount(
-			filterableFields,
-			listConfig
+			filterableFields
 		);
 
 		for (let orderEdit of orderEdits) {
@@ -69,7 +67,10 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 
 		let orderEdit = await myOrderEditService.retrieveSupplierOrderEdit(
 			createdOrderEdit.id,
-			{}
+			{
+				relations: defaultOrderEditRelations,
+				select: defaultOrderEditFields,
+			} as any
 		);
 
 		orderEdit = await myOrderEditService.decorateTotalsSupplierOrderEdit(

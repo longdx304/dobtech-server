@@ -1,6 +1,10 @@
 import { MedusaRequest, MedusaResponse } from '@medusajs/medusa';
 import MyOrderEditService from 'src/services/my-order-edit';
 import { EntityManager } from 'typeorm';
+import {
+	defaultOrderEditFields,
+	defaultOrderEditRelations,
+} from '../../../../../types/my-order-edits';
 
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
 	const myOrderEditService: MyOrderEditService =
@@ -18,7 +22,10 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 				.confirmSupplierOrderEdit(id, { confirmedBy: userId });
 		});
 
-		let orderEdit = await myOrderEditService.retrieveSupplierOrderEdit(id, {});
+		let orderEdit = await myOrderEditService.retrieveSupplierOrderEdit(id, {
+			relations: defaultOrderEditRelations,
+			select: defaultOrderEditFields,
+		} as any);
 		orderEdit = await myOrderEditService.decorateTotalsSupplierOrderEdit(
 			orderEdit
 		);

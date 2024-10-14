@@ -1,6 +1,10 @@
 import { MedusaRequest, MedusaResponse } from '@medusajs/medusa';
 import MyOrderEditService from 'src/services/my-order-edit';
 import { EntityManager } from 'typeorm';
+import {
+	defaultOrderEditFields,
+	defaultOrderEditRelations,
+} from '../../../../../../types/my-order-edits';
 
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
 	const myOrderEditService: MyOrderEditService =
@@ -9,7 +13,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 
 	const { id, item_id } = req.params;
 
-	const validatedBody = req.validatedBody as any;
+	const body = req.body as any;
 
 	try {
 		const decoratedEdit = await manager.transaction(
@@ -17,13 +21,12 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 				const orderEditTx =
 					myOrderEditService.withTransaction(transactionManager);
 
-				await orderEditTx.updateLineItemSupplierOrderEdit(
-					id,
-					item_id,
-					validatedBody
-				);
+				await orderEditTx.updateLineItemSupplierOrderEdit(id, item_id, body);
 
-				const orderEdit = await orderEditTx.retrieveSupplierOrderEdit(id, {});
+				const orderEdit = await orderEditTx.retrieveSupplierOrderEdit(id, {
+					relations: defaultOrderEditRelations,
+					select: defaultOrderEditFields,
+				} as any);
 
 				await orderEditTx.decorateTotalsSupplierOrderEdit(orderEdit);
 
@@ -56,9 +59,9 @@ export async function DELETE(req: MedusaRequest, res: MedusaResponse) {
 		});
 
 		let orderEdit = await myOrderEditService.retrieveSupplierOrderEdit(id, {
-			// select: defaultOrderEditFields,
-			// relations: defaultOrderEditRelations,
-		});
+			relations: defaultOrderEditRelations,
+			select: defaultOrderEditFields,
+		} as any);
 		orderEdit = await myOrderEditService.decorateTotalsSupplierOrderEdit(
 			orderEdit
 		);

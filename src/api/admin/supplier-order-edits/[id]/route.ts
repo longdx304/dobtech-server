@@ -1,6 +1,10 @@
 import { MedusaRequest, MedusaResponse } from '@medusajs/medusa';
 import MyOrderEditService from 'src/services/my-order-edit';
 import { EntityManager } from 'typeorm';
+import {
+	defaultOrderEditFields,
+	defaultOrderEditRelations,
+} from '../../../../types/my-order-edits';
 
 export async function GET(req: MedusaRequest, res: MedusaResponse) {
 	const myOrderEditService: MyOrderEditService =
@@ -11,15 +15,16 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
 	const retrieveConfig = req.retrieveConfig;
 
 	try {
-		let myOrderEdit = await myOrderEditService.retrieveSupplierOrderEdit(
+		let orderEdit = await myOrderEditService.retrieveSupplierOrderEdit(
 			id,
 			retrieveConfig
 		);
-		myOrderEdit = await myOrderEditService.decorateTotalsSupplierOrderEdit(
-			myOrderEdit
+
+		orderEdit = await myOrderEditService.decorateTotalsSupplierOrderEdit(
+			orderEdit
 		);
 
-		return res.status(200).json({ order_edit: myOrderEdit });
+		return res.status(200).json({ order_edit: orderEdit });
 	} catch (error) {
 		return res.status(404).json({ error: error.message });
 	}
@@ -43,8 +48,12 @@ export async function PUT(req: MedusaRequest, res: MedusaResponse) {
 
 		let orderEdit = await myOrderEditService.retrieveSupplierOrderEdit(
 			updatedOrderEdit.id,
-			{}
+			{
+				relations: defaultOrderEditRelations,
+				select: defaultOrderEditFields,
+			} as any
 		);
+
 		orderEdit = await myOrderEditService.decorateTotalsSupplierOrderEdit(
 			orderEdit
 		);
@@ -61,7 +70,6 @@ export async function DELETE(req: MedusaRequest, res: MedusaResponse) {
 	const manager: EntityManager = req.scope.resolve('manager');
 
 	const { id } = req.params;
-
 
 	try {
 		await manager.transaction(async (transactionManager) => {
