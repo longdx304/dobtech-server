@@ -17,16 +17,45 @@ class SupplierOrderDocumentService extends TransactionBaseService {
 		this.supplierOrderDocumentRepository_ = supplierOrderDocumentRepository;
 	}
 
-	async create(data: CreateSODocumentsInput) {
+	/**
+	 * Creates a new supplier order document.
+	 *
+	 * @param {CreateSODocumentsInput} data - The data to create the supplier order document with.
+	 * @returns {Promise<SupplierOrderDocument>} The created supplier order document.
+	 */
+	async create(id: string, data: string[]) {
 		const supplierOrderDocumentRepo = this.activeManager_.withRepository(
 			this.supplierOrderDocumentRepository_
 		);
 
-		const supplierOrderDocument = supplierOrderDocumentRepo.create(data);
+		const supplierOrderDocuments = data.map((item) =>
+			supplierOrderDocumentRepo.create({
+				supplier_order_id: id,
+				document_url: item,
+			})
+		);
 
-		await supplierOrderDocumentRepo.save(supplierOrderDocument);
+		await supplierOrderDocumentRepo.save(supplierOrderDocuments);
 
-		return supplierOrderDocument;
+		return supplierOrderDocuments;
+	}
+
+	async delete(id: string) {
+		const supplierOrderDocumentRepo = this.activeManager_.withRepository(
+			this.supplierOrderDocumentRepository_
+		);
+
+		const supplierOrderDocument = await supplierOrderDocumentRepo.findOne({
+			where: { id },
+		});
+
+		if (!supplierOrderDocument) {
+			throw new Error(`Đơn đặt hàng của ncc với: ${id} không tìm thấy`);
+		}
+
+		await supplierOrderDocumentRepo.remove(supplierOrderDocument);
+
+		return true;
 	}
 }
 
