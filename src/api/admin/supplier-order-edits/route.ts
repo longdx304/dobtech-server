@@ -36,7 +36,7 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
 		}
 
 		return res.status(200).json({
-			order_edits: orderEdits,
+			edits: orderEdits,
 			count: orderEditCount,
 			limit: limit,
 			offset: offset,
