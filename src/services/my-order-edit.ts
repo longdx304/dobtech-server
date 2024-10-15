@@ -133,9 +133,6 @@ export default class MyOrderEditService extends TransactionBaseService {
 			this.orderEditRepository_
 		);
 
-		// const query = buildQuery({ id: orderEditId }, config);
-		// console.log('query', query);
-		// const orderEdit = await orderEditRepository.findOne(query);
 		const query = buildQuery(
 			{ id: orderEditId },
 			{

@@ -1,15 +1,23 @@
 import {
 	buildQuery,
 	Cart,
+	EventBusService,
 	FindConfig,
 	LineItem,
 	LineItemService,
 	NewTotalsService,
 	OrderService,
+	Payment,
+	PaymentProviderService,
+	PaymentSession,
+	PaymentStatus,
 	RegionService,
 	TotalsService,
 	TransactionBaseService,
 } from '@medusajs/medusa';
+import CartRepository from '@medusajs/medusa/dist/repositories/cart';
+import LineItemRepository from '@medusajs/medusa/dist/repositories/line-item';
+import { TotalsContext } from '@medusajs/medusa/dist/types/orders';
 import {
 	buildRelations,
 	buildSelects,
@@ -27,58 +35,90 @@ import { FlagRouter } from 'src/utils/flag-router';
 import { EntityManager } from 'typeorm';
 import MyCartService from './cart';
 import EmailsService from './emails';
+import MyPaymentProviderService from './my-payment-provider';
 import SupplierOrderDocumentService from './supplier-order-document';
-import LineItemRepository from '@medusajs/medusa/dist/repositories/line-item';
-import { TotalsContext } from '@medusajs/medusa/dist/types/orders';
 
 type InjectedDependencies = {
 	manager: EntityManager;
 	supplierOrderRepository: typeof SupplierOrderRepository;
 	lineItemRepository: typeof LineItemRepository;
+	cartRepository: typeof CartRepository;
 	orderService: OrderService;
 	supplierOrderDocumentService: SupplierOrderDocumentService;
 	cartService: MyCartService;
 	regionService: RegionService;
 	lineItemService: LineItemService;
+	paymentProviderService: PaymentProviderService;
+	myPaymentProviderService: MyPaymentProviderService;
 	emailsService: EmailsService;
 	totalsService: TotalsService;
 	featureFlagRouter: FlagRouter;
+	eventBusService: EventBusService;
 };
 
 class SupplierOrderService extends TransactionBaseService {
+	static readonly Events = {
+		SEND_EMAIL: 'supplier.order_created',
+		PAYMENT_CAPTURED: 'sorder.payment_captured',
+		PAYMENT_CAPTURE_FAILED: 'sorder.payment_capture_failed',
+		SHIPMENT_CREATED: 'sorder.shipment_created',
+		FULFILLMENT_CREATED: 'sorder.fulfillment_created',
+		FULFILLMENT_CANCELED: 'sorder.fulfillment_canceled',
+		RETURN_REQUESTED: 'sorder.return_requested',
+		ITEMS_RETURNED: 'sorder.items_returned',
+		RETURN_ACTION_REQUIRED: 'sorder.return_action_required',
+		REFUND_CREATED: 'sorder.refund_created',
+		PLACED: 'sorder.placed',
+		UPDATED: 'sorder.updated',
+		CANCELED: 'sorder.canceled',
+		COMPLETED: 'sorder.completed',
+	};
+
 	protected supplierOrderRepository_: typeof SupplierOrderRepository;
 	protected lineItemRepository_: typeof LineItemRepository;
+	protected cartRepository_: typeof CartRepository;
 	protected orderService_: OrderService;
 	protected supplierOrderDocumentService_: SupplierOrderDocumentService;
 	protected cartService_: MyCartService;
 	protected regionService_: RegionService;
 	protected lineItemService_: LineItemService;
 	protected emailsService_: EmailsService;
+	protected paymentProviderService_: PaymentProviderService;
+	protected myPaymentProviderService_: MyPaymentProviderService;
 	protected readonly newTotalsService_: NewTotalsService;
 	protected readonly totalsService_: TotalsService;
 	protected readonly featureFlagRouter_: FlagRouter;
+	protected readonly eventBus_: EventBusService;
 
 	constructor({
 		supplierOrderRepository,
 		lineItemRepository,
+		cartRepository,
 		supplierOrderDocumentService,
 		orderService,
 		cartService,
 		regionService,
 		lineItemService,
+		paymentProviderService,
+		myPaymentProviderService,
 		emailsService,
 		totalsService,
+		eventBusService,
 		featureFlagRouter,
 	}: InjectedDependencies) {
 		super(arguments[0]);
 
 		this.supplierOrderRepository_ = supplierOrderRepository;
 		this.lineItemRepository_ = lineItemRepository;
+		this.cartRepository_ = cartRepository;
 		this.supplierOrderDocumentService_ = supplierOrderDocumentService;
 		this.orderService_ = orderService;
 		this.cartService_ = cartService;
 		this.regionService_ = regionService;
 		this.lineItemService_ = lineItemService;
+		this.paymentProviderService_ = paymentProviderService; // session close if wrong
+		this.eventBus_ = eventBusService;
+		this.myPaymentProviderService_ = myPaymentProviderService;
 		this.emailsService_ = emailsService;
 		this.totalsService_ = totalsService;
 		this.featureFlagRouter_ = featureFlagRouter;
@@ -95,18 +135,9 @@ class SupplierOrderService extends TransactionBaseService {
 			);
 		}
 
-		const { totalsToSelect } = this.transformQueryForTotals(config);
-
 		const supplierOrderRepo = this.activeManager_.withRepository(
 			this.supplierOrderRepository_
 		);
-
-		// const supplierOrder = await supplierOrderRepo.findOne({
-		// 	where: { id },
-		// 	relations: ['supplier', 'user', 'cart', 'documents', 'items'],
-		// });
-
-		// return supplierOrder;
 
 		const query = buildQuery({ id: id }, config);
 
@@ -118,6 +149,8 @@ class SupplierOrderService extends TransactionBaseService {
 			documents: true,
 			supplier: true,
 			user: true,
+			cart: true,
+			payments: true,
 		};
 		delete query.relations;
 
@@ -146,7 +179,6 @@ class SupplierOrderService extends TransactionBaseService {
 			...options,
 			relations,
 		});
-		console.log('retrieve totals', relations);
 
 		return await this.decorateTotals(supplierOrder, context);
 	}
@@ -181,10 +213,8 @@ class SupplierOrderService extends TransactionBaseService {
 		const supplierOrderRepo = this.activeManager_.withRepository(
 			this.supplierOrderRepository_
 		);
-		console.log('selector', selector);
 
 		const { q, ...supplierOrderSelectorRest } = selector;
-		console.log('supplierOrderSelectorRest', supplierOrderSelectorRest);
 
 		const query = buildQuery(supplierOrderSelectorRest, config);
 
@@ -205,7 +235,6 @@ class SupplierOrderService extends TransactionBaseService {
 			raw.map(async (r) => await this.decorateTotals(r, select))
 		);
 
-
 		// Return the orders along with the count
 		return [supplierOrders, count];
 	}
@@ -216,10 +245,8 @@ class SupplierOrderService extends TransactionBaseService {
 		totalsToSelect: FindConfig<SupplierOrder>['select'];
 	} {
 		let { select, relations } = config;
-		console.log('config transform', config);
 
 		if (!select) {
-			console.log('none');
 			return {
 				select,
 				relations,
@@ -250,9 +277,7 @@ class SupplierOrderService extends TransactionBaseService {
 		}
 
 		const toSelect = [...select];
-		console.log('toSelect', toSelect);
 		if (toSelect.length > 0 && toSelect.indexOf('tax_rate') === -1) {
-			toSelect.push('tax_rate');
 		}
 
 		return {
@@ -273,6 +298,10 @@ class SupplierOrderService extends TransactionBaseService {
 		data: CreateSupplierOrderInput
 	): Promise<Cart> {
 		const { lineItems, countryCode, email } = data;
+
+		// cart repo
+		const cartRepo = this.activeManager_.withRepository(this.cartRepository_);
+
 		// Get the region from the country code
 		const region = await this.regionService_.retrieveByCountryCode(countryCode);
 		// Create a cart for the user
@@ -282,6 +311,7 @@ class SupplierOrderService extends TransactionBaseService {
 				region_id: region.id,
 				email,
 			});
+
 		// Add line items in the cart
 		await Promise.all(
 			lineItems.map(async (lineItem) => {
@@ -298,23 +328,49 @@ class SupplierOrderService extends TransactionBaseService {
 					.addOrUpdateLineItemsSupplierOrder(cart.id, line);
 			})
 		);
+		// Create payment sessions for the cart
+		await this.cartService_
+			.withTransaction(transactionManager)
+			.setPaymentSessions(cart.id);
+
 		// Retrieve the cart with the items
 		cart = await this.cartService_
 			.withTransaction(transactionManager)
-			.retrieve(cart.id, {
+			.retrieveWithTotals(cart.id, {
 				relations: [
 					'items',
 					'items.variant',
 					'items.variant.product',
 					'region',
+					'payment_sessions',
 				],
 			});
 
-		// Create payment sessions for the cart
-		// await this.cartService_.setPaymentSession(
-		// 	cart.id,
-		// 	'manual'
-		// );
+		if (!cart.payment_session) {
+			throw new MedusaError(
+				MedusaError.Types.NOT_ALLOWED,
+				'You cannot complete a cart without a payment session.'
+			);
+		}
+
+		const session = (await this.paymentProviderService_
+			.withTransaction(transactionManager)
+			.authorizePayment(cart.payment_session, {})) as PaymentSession;
+
+		if (session.status === 'authorized') {
+			cart.payment = await this.paymentProviderService_
+				.withTransaction(transactionManager)
+				.createPayment({
+					cart_id: cart.id,
+					currency_code: cart.region.currency_code,
+					amount: cart.total!,
+					payment_session: cart.payment_session,
+				});
+			cart.payment_authorized_at = new Date();
+		}
+
+		// Save the cart
+		cart = await cartRepo.save(cart);
 
 		return cart;
 	}
@@ -331,9 +387,9 @@ class SupplierOrderService extends TransactionBaseService {
 					this.supplierOrderRepository_
 				);
 
-				console.log('data service', data);
 				const LineItemService =
 					this.lineItemService_.withTransaction(transactionManager);
+
 				const {
 					supplierId,
 					userId,
@@ -350,6 +406,8 @@ class SupplierOrderService extends TransactionBaseService {
 					data
 				);
 
+				const { payment, total } = cart;
+
 				const payload = {
 					supplier_id: supplierId,
 					user_id: userId,
@@ -360,11 +418,19 @@ class SupplierOrderService extends TransactionBaseService {
 					settlement_time,
 				};
 
-				// Add line items in the cart
+				// Add line items in the supplier order
 				const createSupplierOrder = supplierOrderRepository.create(payload);
 				const supplierOrder = await supplierOrderRepository.save(
 					createSupplierOrder
 				);
+
+				if (total !== 0 && payment) {
+					await this.myPaymentProviderService_
+						.withTransaction(transactionManager)
+						.updateNewPayment(payment.id, {
+							supplier_order_id: supplierOrder.id,
+						});
+				}
 
 				// Update line items with the supplier_order_id
 				await LineItemService.update({ cart_id: cart.id }, {
@@ -397,7 +463,7 @@ class SupplierOrderService extends TransactionBaseService {
 				// Send email to the supplier and admin
 				await this.emailsService_.sendEmail(
 					supplierOrderWithRelations.supplier.email,
-					'supplier.order_created',
+					SupplierOrderService.Events.SEND_EMAIL,
 					supplierOrderWithRelations,
 					optionsEmail
 				);
@@ -514,6 +580,80 @@ class SupplierOrderService extends TransactionBaseService {
 		);
 	}
 
+	/**
+	 * Captures payment for an order.
+	 * @param orderId - id of order to capture payment for.
+	 * @return result of the update operation.
+	 */
+	async capturePayment(supplierOrderId: string): Promise<SupplierOrder> {
+		return await this.atomicPhase_(
+			async (transactionManager: EntityManager) => {
+				const supplierOrderRepo = transactionManager.withRepository(
+					this.supplierOrderRepository_
+				);
+				const supplierOrder = await this.retrieve(supplierOrderId, {
+					relations: ['payments'],
+				});
+
+				if (supplierOrder.status === 'canceled') {
+					throw new MedusaError(
+						MedusaError.Types.NOT_ALLOWED,
+						'A canceled order cannot capture payment'
+					);
+				}
+
+				const paymentProviderServiceTx =
+					this.paymentProviderService_.withTransaction(transactionManager);
+
+				const payments: Payment[] = [];
+				for (const p of supplierOrder.payments) {
+					if (p.captured_at === null) {
+						const result = await paymentProviderServiceTx
+							.capturePayment(p)
+							.catch(async (err) => {
+								await this.eventBus_
+									.withTransaction(transactionManager)
+									.emit(SupplierOrderService.Events.PAYMENT_CAPTURE_FAILED, {
+										id: supplierOrder.id,
+										payment_id: p.id,
+										error: err,
+										no_notification: supplierOrder.no_notification,
+									});
+							});
+
+						if (result) {
+							payments.push(result);
+						} else {
+							payments.push(p);
+						}
+					} else {
+						payments.push(p);
+					}
+				}
+
+				supplierOrder.payments = payments;
+				supplierOrder.payment_status = payments.every(
+					(p) => p.captured_at !== null
+				)
+					? PaymentStatus.CAPTURED
+					: PaymentStatus.REQUIRES_ACTION;
+
+				const result = await supplierOrderRepo.save(supplierOrder);
+
+				if (supplierOrder.payment_status === PaymentStatus.CAPTURED) {
+					await this.eventBus_
+						.withTransaction(transactionManager)
+						.emit(SupplierOrderService.Events.PAYMENT_CAPTURED, {
+							id: result.id,
+							no_notification: supplierOrder.no_notification,
+						});
+				}
+
+				return result;
+			}
+		);
+	}
+
 	async retrieveLineItemsById(
 		supplierOrderId: string
 	): Promise<LineItem[] | undefined> {
@@ -525,6 +665,49 @@ class SupplierOrderService extends TransactionBaseService {
 			where: { supplier_order_id: supplierOrderId } as any,
 		});
 		return lineItems;
+	}
+
+	/**
+	 * Gets an order by cart id.
+	 * @param cartId - cart id to find order
+	 * @param config - the config to be used to find order
+	 * @return the order document
+	 */
+	async retrieveByCartId(
+		cartId: string,
+		config: FindConfig<SupplierOrder> = {}
+	): Promise<SupplierOrder> {
+		const supplierOrderRepo = this.activeManager_.withRepository(
+			this.supplierOrderRepository_
+		);
+
+		const { select, relations, totalsToSelect } =
+			this.transformQueryForTotals(config);
+
+		const query = {
+			where: { cart_id: cartId },
+		} as FindConfig<SupplierOrder>;
+
+		if (relations && relations.length > 0) {
+			query.relations = relations;
+		}
+
+		query.select = select?.length ? select : undefined;
+
+		const raw = await supplierOrderRepo.findOne(query);
+
+		if (!raw) {
+			throw new MedusaError(
+				MedusaError.Types.NOT_FOUND,
+				`Order with cart id: ${cartId} was not found`
+			);
+		}
+
+		if (!totalsToSelect?.length) {
+			return raw;
+		}
+
+		return await this.decorateTotals(raw, totalsToSelect);
 	}
 
 	async decorateTotals(
@@ -546,20 +729,6 @@ class SupplierOrderService extends TransactionBaseService {
 		supplierOrder: SupplierOrder,
 		totalsFieldsOrContext?: string[] | TotalsContext
 	): Promise<SupplierOrder> {
-		// const newTotalsServiceTx = this.newTotalsService_.withTransaction(
-		// 	this.activeManager_
-		// );
-
-		// console.log('newTotalsServiceTx', newTotalsServiceTx);
-
-		const allItems: LineItem[] = [...(supplierOrder.items ?? [])];
-
-		// const itemsTotals = await newTotalsServiceTx.getLineItemTotals(allItems, {
-		// 	taxRate: supplierOrder.tax_rate,
-		// 	includeTax: true,
-		// 	calculationContext,
-		// });
-
 		supplierOrder.subtotal = 0;
 
 		supplierOrder.paid_total =
@@ -570,8 +739,6 @@ class SupplierOrderService extends TransactionBaseService {
 
 		supplierOrder.items = (supplierOrder.items || []).map((item) => {
 			item.quantity = item.quantity - (item.returned_quantity || 0);
-
-			// Object.assign(item, itemsTotals[item.id] ?? {}, { returned_quantity: 0 });
 
 			item.subtotal = item.unit_price * item.quantity;
 			supplierOrder.subtotal += item.subtotal ?? 0;
@@ -594,6 +761,7 @@ class SupplierOrderService extends TransactionBaseService {
 		relationSet.add('items.adjustments');
 		relationSet.add('items.variant');
 		relationSet.add('region');
+		relationSet.add('payments');
 
 		return Array.from(relationSet.values());
 	}
