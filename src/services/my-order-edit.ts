@@ -130,19 +130,7 @@ export default class MyOrderEditService extends TransactionBaseService {
 			this.orderEditRepository_
 		);
 
-		// const query = buildQuery(
-		// 	{ id: orderEditId },
-		// 	{
-		// 		...config,
-		// 		relations: [
-		// 			...(config.relations || []),
-		// 			'changes',
-		// 			'changes.line_item',
-		// 			'changes.original_line_item',
-		// 		],
-		// 	}
-		// );
-		const query = buildQuery({ id: orderEditId }, config)
+		const query = buildQuery({ id: orderEditId }, config);
 
 		const orderEdit = await orderEditRepository.findOne(query as any);
 
@@ -241,8 +229,6 @@ export default class MyOrderEditService extends TransactionBaseService {
 			const lineItemIds = orderLineItems
 				.filter((item) => item.supplier_order_id === data.supplier_order_id)
 				.map(({ id }) => id);
-
-			console.log('Line item ids:', lineItemIds);
 
 			await lineItemServiceTx.newCloneTo(lineItemIds, {
 				order_edit_id: orderEdit.id,
@@ -575,15 +561,6 @@ export default class MyOrderEditService extends TransactionBaseService {
 				supplier_order_id: orderEdit.supplier_order_id,
 			});
 
-			console.log('Line item list:', lineItemList);
-
-			// filter generated line items not in the line item list
-			const lineItemIds = lineItemList
-				.filter((li) => li.order_edit_id === null)
-				.map((li) => li.id);
-
-			console.log('Line item ids:', lineItemIds);
-
 			const regionId = orderEdit.supplier_order.region_id;
 
 			const lineItemData = await lineItemServiceTx.generate(
@@ -599,9 +576,6 @@ export default class MyOrderEditService extends TransactionBaseService {
 				}
 			);
 
-			// Ensure supplier_order_id is set
-			lineItemData.supplier_order_id = orderEdit.supplier_order_id;
-
 			// Update the variant's supplier_price
 			await productVariantServiceTx.update(data.variant_id, {
 				supplier_price: data.unit_price,
@@ -612,8 +586,6 @@ export default class MyOrderEditService extends TransactionBaseService {
 			lineItem = await lineItemServiceTx.retrieve(lineItem.id, {
 				relations: ['variant', 'variant.product'],
 			});
-
-			console.log('Line item created:', lineItem);
 
 			/**
 			 * Generate a change record
@@ -635,8 +607,6 @@ export default class MyOrderEditService extends TransactionBaseService {
 				itemChangeId,
 				{ select: ['id', 'order_edit_id'] }
 			);
-
-			console.log('delete item cahnge start', itemChange);
 
 			const orderEdit = await this.retrieveSupplierOrderEdit(orderEditId, {
 				select: ['id', 'confirmed_at', 'canceled_at'],
@@ -868,9 +838,7 @@ export default class MyOrderEditService extends TransactionBaseService {
 		const orderEditLineItems = await this.lineItemService_.list(
 			{ order_edit_id: orderEditId },
 			{ relations: ['product', 'variant'] }
-			// { relations: ['product', 'variant'] }
 		);
-		console.log('orderEditLineItems:', orderEditLineItems);
 
 		// Attach the cloned line items to the order edit response
 		orderEdit.items = orderEditLineItems;
