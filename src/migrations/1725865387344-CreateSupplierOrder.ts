@@ -9,8 +9,6 @@ export class CreateSupplierOrder1725865387344 implements MigrationInterface {
 					"supplier_id" character varying NOT NULL,
 					"user_id" character varying NOT NULL,
 					"cart_id" character varying NOT NULL,
-					"region_id" character varying NOT NULL,
-					"currency_code" character varying NOT NULL,
 					"status" character varying DEFAULT 'pending',
 					"payment_status" character varying DEFAULT 'not_paid',
 					"fulfillment_status" character varying DEFAULT 'not_fulfilled',
@@ -26,9 +24,7 @@ export class CreateSupplierOrder1725865387344 implements MigrationInterface {
 					CONSTRAINT "uq_supplier_order_cart_id" UNIQUE ("cart_id"),
 					CONSTRAINT "fk_supplier_order_supplier_id" FOREIGN KEY ("supplier_id") REFERENCES "supplier"("id"),
 					CONSTRAINT "fk_supplier_order_user_id" FOREIGN KEY ("user_id") REFERENCES "user"("id"),
-					CONSTRAINT "fk_supplier_order_cart_id" FOREIGN KEY ("cart_id") REFERENCES "cart"("id"),
-					CONSTRAINT "fk_supplier_order_region_id" FOREIGN KEY ("region_id") REFERENCES "region"("id"),
-					CONSTRAINT "fk_supplier_order_currency_code" FOREIGN KEY ("currency_code") REFERENCES "currency"("code")
+					CONSTRAINT "fk_supplier_order_cart_id" FOREIGN KEY ("cart_id") REFERENCES "cart"("id")
 				)`
 		);
 
@@ -36,8 +32,6 @@ export class CreateSupplierOrder1725865387344 implements MigrationInterface {
 		await queryRunner.query(`CREATE INDEX "idx_supplier_order_user_id" ON "supplier_order" ("user_id")`);
 		await queryRunner.query(`CREATE INDEX "idx_supplier_order_display_id" ON "supplier_order" ("display_id")`);
 		await queryRunner.query(`CREATE INDEX "idx_supplier_order_cart_id" ON "supplier_order" ("cart_id")`);
-		await queryRunner.query(`CREATE INDEX "idx_supplier_order_region_id" ON "supplier_order" ("region_id")`);
-		await queryRunner.query(`CREATE INDEX "idx_supplier_order_currency_code" ON "supplier_order" ("currency_code")`);
 	}
 
 	public async down(queryRunner: QueryRunner): Promise<void> {
@@ -45,8 +39,6 @@ export class CreateSupplierOrder1725865387344 implements MigrationInterface {
 		await queryRunner.query(`DROP INDEX "idx_supplier_order_cart_id"`);
 		await queryRunner.query(`DROP INDEX "idx_supplier_order_display_id"`);
 		await queryRunner.query(`DROP INDEX "idx_supplier_order_user_id"`);
-		await queryRunner.query(`DROP INDEX "idx_supplier_order_region_id"`);
-		await queryRunner.query(`DROP INDEX "idx_supplier_order_currency_code"`);
 
 		// Delete table
 		await queryRunner.query(`DROP TABLE "supplier_order"`);
