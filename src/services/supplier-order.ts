@@ -228,10 +228,7 @@ class SupplierOrderService extends TransactionBaseService {
 				// Create supplier order documents
 				await this.supplierOrderDocumentService_
 					.withTransaction(transactionManager)
-					.create({
-						supplier_order_id: supplierOrder.id,
-						document_url,
-					});
+					.create(supplierOrder.id, [document_url]);
 
 				const optionsEmail = {
 					attachments: [
