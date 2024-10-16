@@ -1,8 +1,5 @@
 import {
-	Cart,
 	EventBusService,
-	LineItem,
-	LineItemAdjustmentService,
 	LineItemService,
 	NewTotalsService,
 	OrderEdit,
@@ -34,11 +31,12 @@ import { IInventoryService } from '@medusajs/types';
 import { SupplierOrder } from 'src/models/supplier-order';
 import OrderEditRepository from '../repositories/order-edit';
 import SupplierOrderService from './supplier-order';
+import MyLineItemService from './my-line-item';
 
 type InjectedDependencies = {
 	manager: EntityManager;
 	orderEditRepository: typeof OrderEditRepository;
-
+	myLineItemService: MyLineItemService;
 	orderService: OrderService;
 	supplierOrderService: SupplierOrderService;
 	totalsService: TotalsService;
@@ -46,15 +44,14 @@ type InjectedDependencies = {
 	lineItemService: LineItemService;
 	eventBusService: EventBusService;
 	taxProviderService: TaxProviderService;
-	lineItemAdjustmentService: LineItemAdjustmentService;
 	orderEditItemChangeService: OrderEditItemChangeService;
 	productVariantService: ProductVariantService;
 	inventoryService?: IInventoryService;
 };
 
-type ExtendedLineItem = LineItem & {
-	supplier_order_id?: string;
-};
+// type ExtendedLineItem = LineItem & {
+// 	supplier_order_id?: string;
+// };
 
 export default class MyOrderEditService extends TransactionBaseService {
 	static readonly Events = {
@@ -82,10 +79,10 @@ export default class MyOrderEditService extends TransactionBaseService {
 	protected readonly lineItemService_: LineItemService;
 	protected readonly eventBusService_: EventBusService;
 	protected readonly taxProviderService_: TaxProviderService;
-	protected readonly lineItemAdjustmentService_: LineItemAdjustmentService;
 	protected readonly orderEditItemChangeService_: OrderEditItemChangeService;
 	protected readonly inventoryService_: IInventoryService | undefined;
 	protected readonly productVariantService_: ProductVariantService;
+	protected readonly myLineItemService_: MyLineItemService;
 
 	constructor({
 		orderEditRepository,
@@ -96,10 +93,10 @@ export default class MyOrderEditService extends TransactionBaseService {
 		totalsService,
 		newTotalsService,
 		orderEditItemChangeService,
-		lineItemAdjustmentService,
 		taxProviderService,
 		inventoryService,
 		productVariantService,
+		myLineItemService,
 	}: InjectedDependencies) {
 		// eslint-disable-next-line prefer-rest-params
 		super(arguments[0]);
@@ -112,10 +109,10 @@ export default class MyOrderEditService extends TransactionBaseService {
 		this.totalsService_ = totalsService;
 		this.newTotalsService_ = newTotalsService;
 		this.orderEditItemChangeService_ = orderEditItemChangeService;
-		this.lineItemAdjustmentService_ = lineItemAdjustmentService;
 		this.taxProviderService_ = taxProviderService;
 		this.inventoryService_ = inventoryService;
 		this.productVariantService_ = productVariantService;
+		this.myLineItemService_ = myLineItemService;
 	}
 
 	async retrieveSupplierOrderEdit(
@@ -133,18 +130,19 @@ export default class MyOrderEditService extends TransactionBaseService {
 			this.orderEditRepository_
 		);
 
-		const query = buildQuery(
-			{ id: orderEditId },
-			{
-				...config,
-				relations: [
-					...(config.relations || []),
-					'changes',
-					'changes.line_item',
-					'changes.original_line_item',
-				],
-			}
-		);
+		// const query = buildQuery(
+		// 	{ id: orderEditId },
+		// 	{
+		// 		...config,
+		// 		relations: [
+		// 			...(config.relations || []),
+		// 			'changes',
+		// 			'changes.line_item',
+		// 			'changes.original_line_item',
+		// 		],
+		// 	}
+		// );
+		const query = buildQuery({ id: orderEditId }, config)
 
 		const orderEdit = await orderEditRepository.findOne(query as any);
 
@@ -229,19 +227,24 @@ export default class MyOrderEditService extends TransactionBaseService {
 			const orderEdit = await orderEditRepository.save(orderEditToCreate);
 
 			const lineItemServiceTx =
-				this.lineItemService_.withTransaction(transactionManager);
+				this.myLineItemService_.withTransaction(transactionManager);
 
 			const orderLineItems = await lineItemServiceTx.list(
 				{
 					supplier_order_id: data.supplier_order_id,
-				} as any,
+				},
 				{
-					select: ['id'],
+					select: ['id', 'supplier_order_id'],
 				}
 			);
 
-			const lineItemIds = orderLineItems.map(({ id }) => id);
-			await lineItemServiceTx.cloneTo(lineItemIds, {
+			const lineItemIds = orderLineItems
+				.filter((item) => item.supplier_order_id === data.supplier_order_id)
+				.map(({ id }) => id);
+
+			console.log('Line item ids:', lineItemIds);
+
+			await lineItemServiceTx.newCloneTo(lineItemIds, {
 				order_edit_id: orderEdit.id,
 			});
 
@@ -440,10 +443,6 @@ export default class MyOrderEditService extends TransactionBaseService {
 			await lineItemServiceTx.update(change.line_item_id!, {
 				quantity: data.quantity,
 			});
-
-			await this.refreshAdjustments(orderEditId, {
-				preserveCustomAdjustments: true,
-			});
 		});
 	}
 
@@ -497,59 +496,12 @@ export default class MyOrderEditService extends TransactionBaseService {
 				.withTransaction(manager)
 				.deleteWithTaxLines(lineItem.id);
 
-			await this.refreshAdjustments(orderEditId);
-
 			await this.orderEditItemChangeService_.withTransaction(manager).create({
 				original_line_item_id: lineItem.original_item_id,
 				type: OrderEditItemChangeType.ITEM_REMOVE,
 				order_edit_id: orderEdit.id,
 			});
 		});
-	}
-
-	async refreshAdjustments(
-		orderEditId: string,
-		config = { preserveCustomAdjustments: false }
-	) {
-		const lineItemAdjustmentServiceTx =
-			this.lineItemAdjustmentService_.withTransaction(this.activeManager_);
-
-		const orderEdit = await this.retrieveSupplierOrderEdit(orderEditId, {
-			relations: [
-				'items',
-				'items.variant',
-				'items.adjustments',
-				'items.tax_lines',
-				'supplier_order',
-				'supplier_order.cart.region',
-			],
-		});
-
-		const clonedItemAdjustmentIds: string[] = [];
-
-		orderEdit.items.forEach((item) => {
-			if (item.adjustments?.length) {
-				item.adjustments.forEach((adjustment) => {
-					const preserveAdjustment = config.preserveCustomAdjustments
-						? !!adjustment.discount_id
-						: true;
-
-					if (preserveAdjustment) {
-						clonedItemAdjustmentIds.push(adjustment.id);
-					}
-				});
-			}
-		});
-
-		await lineItemAdjustmentServiceTx.delete(clonedItemAdjustmentIds);
-
-		const localCart = {
-			...orderEdit.supplier_order,
-			object: 'cart',
-			items: orderEdit.items,
-		} as unknown as Cart;
-
-		await lineItemAdjustmentServiceTx.createAdjustments(localCart);
 	}
 
 	async decorateTotalsSupplierOrderEdit(
@@ -559,12 +511,7 @@ export default class MyOrderEditService extends TransactionBaseService {
 			orderEdit.id,
 			{
 				select: ['id', 'supplier_order_id', 'items'],
-				relations: [
-					'items',
-					'items.tax_lines',
-					'items.adjustments',
-					'items.variant',
-				],
+				relations: ['items', 'items.tax_lines', 'items.variant'],
 			}
 		);
 
@@ -579,7 +526,6 @@ export default class MyOrderEditService extends TransactionBaseService {
 					'region',
 					'items',
 					'items.tax_lines',
-					'items.adjustments',
 					'items.variant',
 					'region.tax_rates',
 				],
@@ -610,15 +556,12 @@ export default class MyOrderEditService extends TransactionBaseService {
 				this.productVariantService_.withTransaction(manager);
 
 			const orderEdit = await this.retrieveSupplierOrderEdit(orderEditId, {
-				relations: ['supplier_order'],
+				relations: [
+					'supplier_order',
+					'supplier_order.region',
+					'supplier_order.user',
+				],
 			});
-
-			const supplierOrder = await this.supplierOrderService_.retrieve(
-				orderEdit.supplier_order_id,
-				{
-					relations: ['cart', 'cart.region'],
-				}
-			);
 
 			if (!MyOrderEditService.isOrderEditActive(orderEdit)) {
 				throw new MedusaError(
@@ -627,15 +570,29 @@ export default class MyOrderEditService extends TransactionBaseService {
 				);
 			}
 
-			const regionId = supplierOrder.cart.region_id;
+			// list all line items in the supplier order edit
+			const lineItemList = await lineItemServiceTx.list({
+				supplier_order_id: orderEdit.supplier_order_id,
+			});
 
-			const lineItemData: ExtendedLineItem = await lineItemServiceTx.generate(
+			console.log('Line item list:', lineItemList);
+
+			// filter generated line items not in the line item list
+			const lineItemIds = lineItemList
+				.filter((li) => li.order_edit_id === null)
+				.map((li) => li.id);
+
+			console.log('Line item ids:', lineItemIds);
+
+			const regionId = orderEdit.supplier_order.region_id;
+
+			const lineItemData = await lineItemServiceTx.generate(
 				data.variant_id,
 				regionId,
 				data.quantity,
 				{
 					...data,
-					customer_id: supplierOrder.cart.customer_id,
+					customer_id: orderEdit.supplier_order.user.id,
 					metadata: data.metadata,
 					order_edit_id: orderEditId,
 					unit_price: data.unit_price,
@@ -651,11 +608,12 @@ export default class MyOrderEditService extends TransactionBaseService {
 			} as any);
 
 			let lineItem = await lineItemServiceTx.create(lineItemData);
-			lineItem = (await lineItemServiceTx.retrieve(lineItem.id, {
-				relations: ['variant', 'variant.product'],
-			})) as ExtendedLineItem;
 
-			await this.refreshAdjustments(orderEditId);
+			lineItem = await lineItemServiceTx.retrieve(lineItem.id, {
+				relations: ['variant', 'variant.product'],
+			});
+
+			console.log('Line item created:', lineItem);
 
 			/**
 			 * Generate a change record
@@ -677,6 +635,8 @@ export default class MyOrderEditService extends TransactionBaseService {
 				itemChangeId,
 				{ select: ['id', 'order_edit_id'] }
 			);
+
+			console.log('delete item cahnge start', itemChange);
 
 			const orderEdit = await this.retrieveSupplierOrderEdit(orderEditId, {
 				select: ['id', 'confirmed_at', 'canceled_at'],
@@ -809,33 +769,25 @@ export default class MyOrderEditService extends TransactionBaseService {
 
 			const lineItemServiceTx = this.lineItemService_.withTransaction(manager);
 
-			const [lineItems] = await Promise.all([
+			await Promise.all([
 				lineItemServiceTx.update(
 					{
 						supplier_order_id: orderEdit.supplier_order_id,
-					} as any,
-					{ order_id: null }
+					},
+					{ supplier_order_id: null }
 				),
-				lineItemServiceTx.update({ order_edit_id: orderEditId }, {
-					supplier_order_id: orderEdit.supplier_order_id,
-				} as any),
+				lineItemServiceTx.update(
+					{ order_edit_id: orderEditId },
+					{
+						supplier_order_id: orderEdit.supplier_order_id,
+					}
+				),
 			]);
 
 			orderEdit.confirmed_at = new Date();
 			orderEdit.confirmed_by = context.confirmedBy;
 
 			orderEdit = await orderEditRepository.save(orderEdit);
-
-			if (this.inventoryService_) {
-				await Promise.all(
-					lineItems.map(
-						async (lineItem) =>
-							await this.inventoryService_!.deleteReservationItemsByLineItem(
-								lineItem.id
-							)
-					)
-				);
-			}
 
 			await this.eventBusService_
 				.withTransaction(manager)
@@ -870,21 +822,16 @@ export default class MyOrderEditService extends TransactionBaseService {
 		const lineItemServiceTx = this.lineItemService_.withTransaction(
 			this.activeManager_
 		);
-		const lineItemAdjustmentServiceTx =
-			this.lineItemAdjustmentService_.withTransaction(this.activeManager_);
-		const taxProviderServiceTs = this.taxProviderService_.withTransaction(
-			this.activeManager_
-		);
 
 		const clonedLineItems = await lineItemServiceTx.list(
 			{
 				order_edit_id: orderEditId,
 			},
 			{
-				select: ['id', 'tax_lines', 'adjustments'],
-				relations: ['tax_lines', 'adjustments'],
+				select: ['id', 'supplier_order_id'],
 			}
 		);
+
 		const clonedItemIds = clonedLineItems.map((item) => item.id);
 
 		const orderEdit = await this.retrieveSupplierOrderEdit(orderEditId, {
@@ -906,21 +853,29 @@ export default class MyOrderEditService extends TransactionBaseService {
 		);
 
 		await Promise.all(
-			[
-				taxProviderServiceTs.clearLineItemsTaxLines(clonedItemIds),
-				clonedItemIds.map(async (id) => {
-					return await lineItemAdjustmentServiceTx.delete({
-						item_id: id,
-					});
-				}),
-			].flat()
-		);
-
-		await Promise.all(
 			clonedItemIds.map(async (id) => {
 				return await lineItemServiceTx.delete(id);
 			})
 		);
+	}
+
+	async retrieveSupplierOrderEditWithItems(
+		orderEditId: string
+	): Promise<OrderEdit> {
+		const orderEdit = await this.retrieveSupplierOrderEdit(orderEditId);
+
+		// Fetch the line items associated with the order edit
+		const orderEditLineItems = await this.lineItemService_.list(
+			{ order_edit_id: orderEditId },
+			{ relations: ['product', 'variant'] }
+			// { relations: ['product', 'variant'] }
+		);
+		console.log('orderEditLineItems:', orderEditLineItems);
+
+		// Attach the cloned line items to the order edit response
+		orderEdit.items = orderEditLineItems;
+
+		return orderEdit;
 	}
 
 	private static isOrderEditActive(orderEdit: OrderEdit): boolean {
