@@ -31,7 +31,7 @@ enum PaymentStatus {
 export type LineItem = {
 	variantId: string;
 	quantity: number;
-	unit_price: number;
+	unit_price?: number;
 };
 
 export type CreateSupplierOrderInput = {
@@ -40,9 +40,17 @@ export type CreateSupplierOrderInput = {
 	userId: string;
 	email: string;
 	countryCode: string;
+	region_id: string;
+	currency_code: string;
 	estimated_production_time: Date;
 	settlement_time: Date;
 	document_url: string;
+	metadata?: Record<string, unknown>;
+};
+
+export type UpdateSupplierOrderInput = {
+	cartId?: string;
+	lineItems: LineItem[];
 	metadata?: Record<string, unknown>;
 };
 
@@ -65,3 +73,7 @@ export const defaultAdminSupplierOrdersFields = [
 export type SupplierOrderSelector = {
 	q?: string;
 };
+
+export interface DeleteLineItemRequest {
+	lineItemId: string;
+}

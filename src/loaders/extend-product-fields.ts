@@ -6,5 +6,6 @@ export default async function () {
   imports.defaultAdminVariantFields = [
     ...imports.defaultAdminVariantFields,
     "supplier_price",
+    "allowed_quantities",
   ]
 }

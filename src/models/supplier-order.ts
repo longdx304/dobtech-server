@@ -1,8 +1,11 @@
 import {
 	BaseEntity,
 	Cart,
+	Currency,
 	DbAwareColumn,
 	generateEntityId,
+	Payment,
+	Region,
 	resolveDbGenerationStrategy,
 	resolveDbType,
 } from '@medusajs/medusa';
@@ -13,12 +16,15 @@ import {
 	Generated,
 	Index,
 	JoinColumn,
+	ManyToOne,
 	OneToMany,
 	OneToOne,
 } from 'typeorm';
+import { LineItem } from './line-item';
+import { OrderEdit } from './order-edit';
 import { Supplier } from './supplier';
-import { User } from './user';
 import { SupplierOrderDocument } from './supplier-order-document';
+import { User } from './user';
 
 export enum OrderStatus {
 	PENDING = 'pending',
@@ -60,7 +66,6 @@ export class SupplierOrder extends BaseEntity {
 	supplier_id: string;
 
 	@OneToOne(() => Supplier)
-	// @OneToOne(() => Supplier, { cascade: ['insert', 'remove'] })
 	@JoinColumn({ name: 'supplier_id' })
 	supplier: Supplier;
 
@@ -93,11 +98,32 @@ export class SupplierOrder extends BaseEntity {
 	@DbAwareColumn({ type: 'enum', enum: PaymentStatus, default: 'not_paid' })
 	payment_status: PaymentStatus;
 
+	@OneToMany(() => Payment, (payment) => payment.supplier_order, {
+		cascade: ['insert'],
+	})
+	payments: Payment[];
+
 	@Column({ type: resolveDbType('timestamptz') })
 	estimated_production_time: Date;
 
 	@Column({ type: resolveDbType('timestamptz') })
 	settlement_time: Date;
+
+	@Index()
+	@Column()
+	region_id: string;
+
+	@ManyToOne(() => Region)
+	@JoinColumn({ name: 'region_id' })
+	region: Region;
+
+	@Index()
+	@Column()
+	currency_code: string;
+
+	@ManyToOne(() => Currency)
+	@JoinColumn({ name: 'currency_code', referencedColumnName: 'code' })
+	currency: Currency;
 
 	@Column({ nullable: true, type: resolveDbType('timestamptz') })
 	tax_rate: number;
@@ -112,6 +138,21 @@ export class SupplierOrder extends BaseEntity {
 		cascade: ['insert', 'remove'],
 	})
 	documents: SupplierOrderDocument[];
+
+	@OneToMany(() => OrderEdit, (oe) => oe.supplier_order)
+	edits: OrderEdit[];
+
+	@OneToMany(() => LineItem, (lineItem) => lineItem.supplier_order, {
+		cascade: ['insert'],
+	})
+	items: LineItem[];
+
+	// Total fields
+	shipping_total: number;
+	tax_total: number | null;
+	total: number;
+	subtotal: number;
+	paid_total: number;
 
 	@BeforeInsert()
 	private async beforeInsert(): Promise<void> {

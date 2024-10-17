@@ -16,12 +16,20 @@ class AdminPostProductsProductVariantsReq extends MedusaAdminPostProductsProduct
 	@IsOptional()
 	@IsNumber()
 	supplier_price?: number;
+
+	@IsOptional()
+	@IsNumber()
+	allowed_quantities?: number;
 }
 
 class AdminPostProductsProductVariantsVariantReq extends MedusaAdminPostProductsProductVariantsVariantReq {
 	@IsOptional()
 	@IsNumber()
 	supplier_price?: number;
+
+	@IsOptional()
+	@IsNumber()
+	allowed_quantities?: number;
 }
 
 class ProductVariantOptionReq {
@@ -96,6 +104,10 @@ class ProductVariantReq {
 	@IsOptional()
 	@IsNumber()
 	supplier_price?: number;
+
+	@IsOptional()
+	@IsNumber()
+	allowed_quantities?: number;
 
 	@IsObject()
 	@IsOptional()
