@@ -279,7 +279,6 @@ export default class MyOrderEditService extends TransactionBaseService {
 			});
 
 			if (!edit) {
-				console.log('No order edit found with id:', id);
 				return;
 			}
 
@@ -292,7 +291,6 @@ export default class MyOrderEditService extends TransactionBaseService {
 
 			try {
 				await this.deleteClonedItems(id);
-				console.log('Cloned items deleted successfully');
 			} catch (error) {
 				console.error('Error deleting cloned items:', error);
 				throw new MedusaError(
@@ -303,7 +301,6 @@ export default class MyOrderEditService extends TransactionBaseService {
 
 			try {
 				await orderEditRepo.remove(edit);
-				console.log('Order edit deleted successfully');
 			} catch (error) {
 				console.error('Error deleting order edit:', error);
 				throw new MedusaError(
@@ -523,11 +520,16 @@ export default class MyOrderEditService extends TransactionBaseService {
 			items,
 		} as SupplierOrder;
 
+		await Promise.all([
+			await supplierOrderServiceTx.decorateTotals(computedOrder),
+			await supplierOrderServiceTx.decorateTotals(supplierOrder),
+		]);
+
 		orderEdit.items = computedOrder.items;
 		orderEdit.subtotal = computedOrder.subtotal;
 		orderEdit.tax_total = computedOrder.tax_total;
 		orderEdit.total = computedOrder.total;
-		orderEdit.difference_due = computedOrder.total - computedOrder.total;
+		orderEdit.difference_due = computedOrder.total - supplierOrder.total;
 
 		return orderEdit;
 	}
@@ -814,7 +816,6 @@ export default class MyOrderEditService extends TransactionBaseService {
 		});
 
 		if (!orderEdit.changes || orderEdit.changes.length === 0) {
-			console.log('No changes to delete for order edit:', orderEditId);
 			return;
 		}
 

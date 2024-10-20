@@ -39,3 +39,10 @@ export declare module '@medusajs/medusa/dist/models/payment' {
 		supplier_order: SupplierOrder;
 	}
 }
+
+export declare module '@medusajs/medusa/dist/models/refund' {
+	declare interface Refund {
+		supplier_order_id: string;
+		supplier_order: SupplierOrder;
+	}
+}
