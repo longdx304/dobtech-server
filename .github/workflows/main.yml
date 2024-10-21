@@ -4,7 +4,7 @@ on:
     branches: ['main']
 jobs:
   build:
-    runs-on: ["self-hosted", "staging"]
+    runs-on: ['self-hosted', 'staging']
     strategy:
       matrix:
         node-version: [20.x]
@@ -15,8 +15,16 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
+      - name: Check available memory
+        run: free -h
+      - name: Cleanup from previous build
+        run: |
+          npm cache clean --force
+          rm -rf node_modules
       - name: Install dependencies
         run: npm ci
+        env:
+          NODE_OPTIONS: --max_old_space_size=1024
       - name: Create .env
         run: |
           touch .env
@@ -36,7 +44,7 @@ jobs:
             package-lock.json
 
   deploy:
-    runs-on: ["self-hosted", "staging"]
+    runs-on: ['self-hosted', 'staging']
     needs: [build]
     steps:
       - name: Download artifact
