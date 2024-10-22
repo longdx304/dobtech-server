@@ -110,6 +110,9 @@ export class SupplierOrder extends BaseEntity {
 	@Column({ type: resolveDbType('timestamptz') })
 	settlement_time: Date;
 
+	@Column({ nullable: true, type: resolveDbType('timestamptz') })
+	canceled_at: Date;
+
 	@Index()
 	@Column()
 	region_id: string;
