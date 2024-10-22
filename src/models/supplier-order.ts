@@ -5,6 +5,7 @@ import {
 	DbAwareColumn,
 	generateEntityId,
 	Payment,
+	Refund,
 	Region,
 	resolveDbGenerationStrategy,
 	resolveDbType,
@@ -142,6 +143,9 @@ export class SupplierOrder extends BaseEntity {
 	@OneToMany(() => OrderEdit, (oe) => oe.supplier_order)
 	edits: OrderEdit[];
 
+	@OneToMany(() => Refund, (ref) => ref.supplier_order, { cascade: ['insert'] })
+	refunds: Refund[];
+
 	@OneToMany(() => LineItem, (lineItem) => lineItem.supplier_order, {
 		cascade: ['insert'],
 	})
@@ -152,6 +156,8 @@ export class SupplierOrder extends BaseEntity {
 	tax_total: number | null;
 	total: number;
 	subtotal: number;
+	refundable_amount: number;
+	refunded_total: number;
 	paid_total: number;
 
 	@BeforeInsert()

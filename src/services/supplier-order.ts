@@ -151,6 +151,7 @@ class SupplierOrderService extends TransactionBaseService {
 			user: true,
 			cart: true,
 			payments: true,
+			refunds: true,
 		};
 		delete query.relations;
 
@@ -259,6 +260,8 @@ class SupplierOrderService extends TransactionBaseService {
 			'tax_total',
 			'total',
 			'paid_total',
+			'refunded_total',
+			'refundable_total',
 			'items.refundable',
 		];
 
@@ -271,6 +274,7 @@ class SupplierOrderService extends TransactionBaseService {
 			relationSet.add('items.variant');
 			relationSet.add('items.variant.product');
 			relationSet.add('region');
+			relationSet.add('refunds');
 			relations = [...relationSet];
 
 			select = select.filter((v) => !totalFields.includes(v));
@@ -416,6 +420,7 @@ class SupplierOrderService extends TransactionBaseService {
 					currency_code,
 					estimated_production_time,
 					settlement_time,
+					payment_status: PaymentStatus.AWAITING,
 				};
 
 				// Add line items in the supplier order
@@ -707,6 +712,93 @@ class SupplierOrderService extends TransactionBaseService {
 		return await this.decorateTotals(raw, totalsToSelect);
 	}
 
+	/**
+	 * Refunds a given amount back to the customer.
+	 * @param supplierOrderId - id of the order to refund.
+	 * @param refundAmount - the amount to refund.
+	 * @param reason - the reason to refund.
+	 * @param note - note for refund.
+	 * @param config - the config for refund.
+	 * @return the result of the refund operation.
+	 */
+	async createRefund(
+		supplierOrderId: string,
+		refundAmount: number,
+		reason: string,
+		note?: string,
+		config: { no_notification?: boolean } = {
+			no_notification: undefined,
+		}
+	): Promise<SupplierOrder> {
+		const { no_notification } = config;
+
+		return await this.atomicPhase_(
+			async (transactionManager: EntityManager) => {
+				const supplierOrderRepository = transactionManager.withRepository(
+					this.supplierOrderRepository_
+				);
+
+				const supplierOrder = await this.retrieve(supplierOrderId, {
+					relations: ['payments'],
+				});
+
+				if (supplierOrder.status === 'canceled') {
+					throw new MedusaError(
+						MedusaError.Types.NOT_ALLOWED,
+						'A canceled order cannot be refunded'
+					);
+				}
+
+				if (refundAmount > supplierOrder.refundable_amount) {
+					throw new MedusaError(
+						MedusaError.Types.NOT_ALLOWED,
+						'Cannot refund more than the original order amount'
+					);
+				}
+
+				const refund = await this.myPaymentProviderService_
+					.withTransaction(transactionManager)
+					.refundSupplierPayment(
+						supplierOrder.payments,
+						refundAmount,
+						reason,
+						note
+					);
+
+				let result = await this.retrieveWithTotals(supplierOrderId, {
+					relations: ['payments'],
+				});
+
+				if (result.refunded_total > 0 && result.refundable_amount > 0) {
+					result.payment_status = PaymentStatus.PARTIALLY_REFUNDED;
+					result = await supplierOrderRepository.save(result);
+				}
+
+				if (
+					result.paid_total > 0 &&
+					result.refunded_total === result.paid_total
+				) {
+					result.payment_status = PaymentStatus.REFUNDED;
+					result = await supplierOrderRepository.save(result);
+				}
+
+				const evaluatedNoNotification =
+					no_notification !== undefined
+						? no_notification
+						: supplierOrder.no_notification;
+
+				await this.eventBus_
+					.withTransaction(transactionManager)
+					.emit(SupplierOrderService.Events.REFUND_CREATED, {
+						id: result.id,
+						refund_id: refund.id,
+						no_notification: evaluatedNoNotification,
+					});
+				return result;
+			}
+		);
+	}
+
 	async decorateTotals(
 		supplierOrder: SupplierOrder,
 		totalsFields?: string[]
@@ -728,9 +820,15 @@ class SupplierOrderService extends TransactionBaseService {
 	): Promise<SupplierOrder> {
 		supplierOrder.subtotal = 0;
 
+		supplierOrder.refunded_total =
+			Math.round(
+				supplierOrder.refunds?.reduce((acc, next) => acc + next.amount, 0)
+			) || 0;
 		supplierOrder.paid_total =
 			supplierOrder.payments?.reduce((acc, next) => (acc += next.amount), 0) ||
 			0;
+		supplierOrder.refundable_amount =
+			supplierOrder.paid_total - supplierOrder.refunded_total || 0;
 
 		let item_tax_total = 0;
 
@@ -758,6 +856,7 @@ class SupplierOrderService extends TransactionBaseService {
 		relationSet.add('items.adjustments');
 		relationSet.add('items.variant');
 		relationSet.add('region');
+		relationSet.add('refunds');
 		relationSet.add('payments');
 
 		return Array.from(relationSet.values());

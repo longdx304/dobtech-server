@@ -1,16 +1,16 @@
 import {
-	OrderService,
+	EventBusService,
 	Payment,
 	TransactionBaseService,
 } from '@medusajs/medusa';
 import PaymentRepository from '@medusajs/medusa/dist/repositories/payment';
-import { EventBusService } from '@medusajs/medusa';
+import SupplierOrderService from 'src/services/supplier-order';
 import { EntityManager } from 'typeorm';
 
 type InjectedDependencies = {
 	manager: EntityManager;
 	paymentRepository: typeof PaymentRepository;
-	orderService: OrderService;
+	supplierOrderService: SupplierOrderService;
 };
 
 type UpdatePaymentInput = {
@@ -20,13 +20,13 @@ type UpdatePaymentInput = {
 class MyPaymentService extends TransactionBaseService {
 	protected readonly eventBusService_: EventBusService;
 	protected paymentRepository_: typeof PaymentRepository;
-	private orderService: OrderService;
+	private supplierOrderService: SupplierOrderService;
 
 	constructor(container: InjectedDependencies) {
 		super(container);
 
 		this.paymentRepository_ = container.paymentRepository;
-		this.orderService = container.orderService;
+		this.supplierOrderService = container.supplierOrderService;
 	}
 
 	/**
@@ -92,11 +92,12 @@ class MyPaymentService extends TransactionBaseService {
 				});
 				// If the paid_total is equal to the payment amount, capture the payment
 				if (paid_total === payment.amount) {
-					if (payment.order_id) {
-						const order = await this.orderService.capturePayment(
-							payment.order_id
-						);
-						payment = order.payments.find((p) => p.id === id);
+					if (payment.supplier_order_id) {
+						const supplierOrder =
+							await this.supplierOrderService.capturePayment(
+								payment.supplier_order_id
+							);
+						payment = supplierOrder.payments.find((p) => p.id === id);
 					}
 				}
 				// Update the payment with the new paid_total
