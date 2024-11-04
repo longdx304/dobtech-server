@@ -3,10 +3,12 @@ import {
 	Cart,
 	EventBusService,
 	FindConfig,
+	FulfillmentStatus,
 	LineItem,
 	LineItemService,
 	NewTotalsService,
 	OrderService,
+	OrderStatus,
 	Payment,
 	PaymentProviderService,
 	PaymentSession,
@@ -583,6 +585,54 @@ class SupplierOrderService extends TransactionBaseService {
 	}
 
 	/**
+	 * Cancels an order.
+	 * Throws if fulfillment process has been initiated.
+	 * Throws if payment process has been initiated.
+	 * @param supplierOrderId - id of order to cancel.
+	 * @return result of the update operation.
+	 */
+	async cancelSupplierOrder(supplierOrderId: string): Promise<SupplierOrder> {
+		return await this.atomicPhase_(
+			async (transactionManager: EntityManager) => {
+				const supplierOrder = await this.retrieve(supplierOrderId, {
+					relations: ['refunds', 'payments', 'items'],
+				});
+
+				if (supplierOrder.refunds?.length > 0) {
+					throw new MedusaError(
+						MedusaError.Types.NOT_ALLOWED,
+						'Order with refund(s) cannot be canceled'
+					);
+				}
+
+				const paymentProviderServiceTx =
+					this.paymentProviderService_.withTransaction(transactionManager);
+				for (const p of supplierOrder.payments) {
+					await paymentProviderServiceTx.cancelPayment(p);
+				}
+
+				supplierOrder.status = OrderStatus.CANCELED;
+				supplierOrder.fulfillment_status = FulfillmentStatus.CANCELED;
+				supplierOrder.payment_status = PaymentStatus.CANCELED;
+				supplierOrder.canceled_at = new Date();
+
+				const supplierOrderRepo = transactionManager.withRepository(
+					this.supplierOrderRepository_
+				);
+				const result = await supplierOrderRepo.save(supplierOrder);
+
+				await this.eventBus_
+					.withTransaction(transactionManager)
+					.emit(SupplierOrderService.Events.CANCELED, {
+						id: supplierOrder.id,
+						no_notification: supplierOrder.no_notification,
+					});
+				return result;
+			}
+		);
+	}
+
+	/**
 	 * Captures payment for an order.
 	 * @param orderId - id of order to capture payment for.
 	 * @return result of the update operation.
@@ -710,6 +760,41 @@ class SupplierOrderService extends TransactionBaseService {
 		}
 
 		return await this.decorateTotals(raw, totalsToSelect);
+	}
+
+	/**
+	 * @param supplierOrderId - id of the order to complete
+	 * @return the result of the find operation
+	 */
+	async completeSupplierOrder(supplierOrderId: string): Promise<SupplierOrder> {
+		return await this.atomicPhase_(
+			async (transactionManager: EntityManager) => {
+				const supplierOrder = await this.retrieve(supplierOrderId);
+
+				const supplierOrderRepo = transactionManager.withRepository(
+					this.supplierOrderRepository_
+				);
+
+				if (supplierOrder.status === 'canceled') {
+					throw new MedusaError(
+						MedusaError.Types.NOT_ALLOWED,
+						'A canceled order cannot be completed'
+					);
+				}
+
+				await this.eventBus_
+					.withTransaction(transactionManager)
+					.emit(SupplierOrderService.Events.COMPLETED, {
+						id: supplierOrderId,
+						no_notification: supplierOrder.no_notification,
+					});
+
+				supplierOrder.status = OrderStatus.COMPLETED;
+
+				const result = await supplierOrderRepo.save(supplierOrder);
+				return result;
+			}
+		);
 	}
 
 	/**
