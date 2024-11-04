@@ -50,8 +50,7 @@
 		"prism-react-renderer": "^2.0.4",
 		"pug": "^3.0.3",
 		"typeorm": "^0.3.16",
-		"ulid": "^2.3.0",
-		"@medusajs/utils": "^1.11.11"
+		"ulid": "^2.3.0"
 	},
 	"devDependencies": {
 		"@babel/cli": "^7.14.3",
