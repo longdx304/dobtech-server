@@ -46,3 +46,10 @@ export declare module '@medusajs/medusa/dist/models/refund' {
 		supplier_order: SupplierOrder;
 	}
 }
+
+export declare module '@medusajs/medusa/dist/models/price-list' {
+	declare interface PriceList {
+		customer_id: string | null;
+		customer: Customer;
+	}
+}

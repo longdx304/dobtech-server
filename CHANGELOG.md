@@ -26,3 +26,6 @@
 * feat: Manage Supplier Order (Information, Summary, Payment, Document, Timeline)
 * feat: Add document for supplier order
 * feat: Add price default when create product
+
+## 0.0.5 (2024-08-27 to 2024-10-15)
+* feat: Add private price for customer when admin update price in order detail
