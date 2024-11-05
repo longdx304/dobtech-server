@@ -6,8 +6,6 @@ import {
 	MedusaResponse,
 	OrderService,
 	PaymentProviderService,
-	ProductVariantInventoryService,
-	reserveQuantityForDraftOrder,
 } from '@medusajs/medusa';
 import {
 	defaultAdminOrdersFields,
@@ -27,10 +25,7 @@ export async function POST(
 		'paymentProviderService'
 	);
 	const orderService: OrderService = req.scope.resolve('orderService');
-	const inventoryService: OrderService = req.scope.resolve('inventoryService');
 	const cartService: CartService = req.scope.resolve('cartService');
-	const productVariantInventoryService: ProductVariantInventoryService =
-		req.scope.resolve('productVariantInventoryService');
 	const entityManager: EntityManager = req.scope.resolve('manager');
 
 	try {
@@ -60,13 +55,6 @@ export async function POST(
 					relations: defaultAdminOrdersRelations,
 					select: defaultAdminOrdersFields,
 				} as any);
-
-			// TODO: Re-enable when we have a way to handle inventory for draft orders on creation
-			if (!inventoryService) {
-				await reserveQuantityForDraftOrder(order, {
-					productVariantInventoryService,
-				});
-			}
 
 			return order;
 		});
