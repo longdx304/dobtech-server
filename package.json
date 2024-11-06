@@ -28,6 +28,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.583.0",
+    "firebase": "^10.12.2",
     "@medusajs/cache-inmemory": "latest",
     "@medusajs/cache-redis": "latest",
     "@medusajs/event-bus-local": "latest",
