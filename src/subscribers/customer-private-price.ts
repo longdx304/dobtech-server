@@ -8,10 +8,21 @@ import {
 } from '@medusajs/medusa';
 import OrderEditService from '../services/order-edit';
 import PriceListService from 'src/services/price-list';
+import MyPaymentService from 'src/services/my-payment';
 
 type OrderEditEvent = {
 	id: string;
 };
+
+async function updatePayment(
+	container: any,
+	paymentId: string,
+	amount: number
+): Promise<void> {
+	const myPaymentService: MyPaymentService =
+		container.resolve('myPaymentService');
+	await myPaymentService.updateAmountPayment(paymentId, amount);
+}
 
 /**
  * This subscriber is responsible for updating the private price of the customer
@@ -50,11 +61,19 @@ export default async function customerPrivatePrice({
 		return;
 	}
 	// Get the customer, currency code of the order
-	const { customer_id, customer, currency_code }: Order =
-		await orderService.retrieve(orderEdit.order_id, {
-			relations: ['customer'],
-		});
+	const {
+		customer_id,
+		customer,
+		currency_code,
+		payments,
+		payment_status,
+		total,
+	}: Order = await orderService.retrieveWithTotals(orderEdit.order_id, {
+		relations: ['customer', 'payments'],
+	});
 
+	// Update the payment amount
+	await updatePayment(container, payments[0].id, total);
 	// Get the pricing of the product variant
 	const pricingItem = await pricingService.getProductVariantPricing(
 		{
@@ -91,6 +110,7 @@ export default async function customerPrivatePrice({
 }
 
 export const config: SubscriberConfig = {
+	// event: OrderEditService.Events.CREATED,
 	event: OrderEditService.Events.CONFIRMED,
 	context: {
 		subscriberId: 'customer-private-price',
