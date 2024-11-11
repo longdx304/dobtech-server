@@ -120,16 +120,18 @@ export default async function handler({
 }: ScheduledJobArgs) {
 	const logger: Logger = container.resolve('logger');
 
+	logger.info('Starting inventory sync job');
 	try {
-		logger.info('Starting inventory sync job');
 		// Initialize Firebase
 		const app = initializeApp(firebaseConfig);
 		const db = getFirestore(app);
+		logger.info('Firebase initialized');
 
 		// Get product variant service
 		const productVariantService: ProductVariantService = container.resolve(
 			'productVariantService'
 		);
+		logger.info('Product variant service resolved');
 
 		// Get inventory data from Firebase
 		const firebaseInventory = await getFirebaseInventory(db);
