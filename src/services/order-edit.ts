@@ -177,14 +177,6 @@ class OrderEditService extends MedusaOrderEditService {
 			],
 		});
 
-		// Find the item update change
-		const changeItem = orderEdit.changes.find((change) => {
-			return change.type === 'item_update';
-		});
-
-		if (!changeItem) {
-			return;
-		}
 		// Get the customer, currency code of the order
 		const {
 			customer_id,
@@ -198,6 +190,15 @@ class OrderEditService extends MedusaOrderEditService {
 
 		// Update the payment amount
 		await this.refreshPayment(payments[0].id, total);
+
+		// Find the item update change
+		const changeItem = orderEdit.changes.find((change) => {
+			return change.type === 'item_update';
+		});
+
+		if (!changeItem) {
+			return;
+		}
 
 		// Get the pricing of the product variant
 		const pricingItem = await pricingServiceTx.getProductVariantPricing(
