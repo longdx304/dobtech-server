@@ -57,19 +57,20 @@ const plugins = [
 ];
 
 const modules = {
-	eventBus: {
-		resolve: '@medusajs/event-bus-redis',
-		options: {
-			redisUrl: REDIS_URL,
-		},
-	},
-	cacheService: {
-		resolve: '@medusajs/cache-redis',
-		options: {
-			redisUrl: REDIS_URL,
-			ttl: 0,
-		},
-	},
+  eventBus: {
+    resolve: '@medusajs/event-bus-redis',
+    options: {
+      redisUrl: REDIS_URL,
+      ttl: 30,
+    },
+  },
+  cacheService: {
+    resolve: '@medusajs/cache-redis',
+    options: {
+      redisUrl: REDIS_URL,
+      ttl: 30,
+    },
+  },
 };
 
 /** @type {import('@medusajs/medusa').ConfigModule["projectConfig"]} */

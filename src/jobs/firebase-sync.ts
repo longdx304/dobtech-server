@@ -1,13 +1,13 @@
 import {
-	Logger,
 	ProductVariant,
-	ProductVariantService,
-	ScheduledJobArgs,
-	ScheduledJobConfig,
+	type Logger,
+	type ProductVariantService,
+	type ScheduledJobArgs,
+	type ScheduledJobConfig,
 } from '@medusajs/medusa';
 import { UpdateProductVariantInput } from '@medusajs/medusa/dist/types/product-variant';
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, getFirestore } from 'firebase/firestore';
 import nodemailer, { TransportOptions } from 'nodemailer';
 
 // Firebase configuration
@@ -68,7 +68,7 @@ async function sendErrorEmail(error: Error, details: any) {
 // Gets inventory from Firebase
 async function getFirebaseInventory(db) {
 	const stock = {};
-	const colRef = collection(db, 'products');
+	const colRef = collection(db, 'products_test');
 	const snapshot = await getDocs(colRef);
 
 	snapshot.forEach((doc) => {
@@ -184,6 +184,6 @@ export default async function handler({
 
 export const config: ScheduledJobConfig = {
 	name: 'sync-firebase-inventory',
-	schedule: '0 17 * * *', // Run daily at 00:00 AM GMT+7
+	schedule: '0 5 * * *',
 	data: {},
 };
