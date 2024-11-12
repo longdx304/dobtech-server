@@ -1,14 +1,21 @@
 import {
 	OrderEditService as MedusaOrderEditService,
+	Order,
 	OrderEdit,
 	OrderEditItemChangeType,
 	OrderEditStatus,
+	PricingService,
 } from '@medusajs/medusa';
-import { MedusaError } from '@medusajs/utils';
-import { EntityManager } from 'typeorm';
+import { MedusaError, promiseAll } from '@medusajs/utils';
+import { EntityManager, IsNull, Not } from 'typeorm';
+import PriceListService from './price-list';
+import MyPaymentService from './my-payment';
 
 type InjectedDependencies = {
 	manager: EntityManager;
+	pricingService: PricingService;
+	priceListService: PriceListService;
+	myPaymentService: MyPaymentService;
 };
 
 class OrderEditService extends MedusaOrderEditService {
@@ -16,9 +23,21 @@ class OrderEditService extends MedusaOrderEditService {
 		...MedusaOrderEditService.Events,
 		LINEITEM_UPDATED: 'order_edit.line_item_updated',
 	};
-	constructor({}: InjectedDependencies) {
+
+	protected readonly pricingService_: PricingService;
+	protected readonly priceListService_: PriceListService;
+	protected readonly myPaymentService_: MyPaymentService;
+
+	constructor({
+		pricingService,
+		priceListService,
+		myPaymentService,
+	}: InjectedDependencies) {
 		// eslint-disable-next-line prefer-rest-params
 		super(arguments[0]);
+		this.pricingService_ = pricingService;
+		this.priceListService_ = priceListService;
+		this.myPaymentService_ = myPaymentService;
 	}
 
 	/**
@@ -101,6 +120,195 @@ class OrderEditService extends MedusaOrderEditService {
 			await this.refreshAdjustments(orderEditId, {
 				preserveCustomAdjustments: true,
 			});
+		});
+	}
+
+	protected async refreshPayment(
+		paymentId: string,
+		amount: number
+	): Promise<void> {
+		const myPaymentServiceTx = this.myPaymentService_.withTransaction(
+			this.activeManager_
+		);
+
+		try {
+			await myPaymentServiceTx.updateAmountPayment(paymentId, amount);
+		} catch (error) {
+			throw new MedusaError(
+				MedusaError.Types.INVALID_DATA,
+				`Failed to update payment with id ${paymentId}`
+			);
+		}
+	}
+
+	/**
+	 * Updates the private price for a customer based on the changes in an order edit.
+	 *
+	 * @param manager - The transaction manager to use for database operations.
+	 * @param orderEditId - The ID of the order edit to process.
+	 * @returns A promise that resolves when the operation is complete.
+	 *
+	 * This method performs the following steps:
+	 * 1. Retrieves the order edit and its related changes.
+	 * 2. Finds the item update change in the order edit.
+	 * 3. Retrieves the customer, currency code, and payment details of the order.
+	 * 4. Updates the payment amount based on the total order amount.
+	 * 5. Retrieves the pricing of the product variant for the customer.
+	 * 6. Inserts or updates the private price of the customer if certain conditions are met.
+	 */
+	protected async customerPrivatePrice(orderEditId: string): Promise<void> {
+		const orderServiceTx = this.orderService_.withTransaction(
+			this.activeManager_
+		);
+		const pricingServiceTx = this.pricingService_.withTransaction(
+			this.activeManager_
+		);
+		const priceListServiceTx = this.priceListService_.withTransaction(
+			this.activeManager_
+		);
+
+		// Retrieve the order edit
+		const orderEdit = await this.retrieve(orderEditId, {
+			relations: [
+				'changes',
+				'changes.line_item',
+				'changes.original_line_item',
+				'changes.original_line_item.variant',
+			],
+		});
+
+		// Get the customer, currency code of the order
+		const {
+			customer_id,
+			customer,
+			currency_code,
+			payments,
+			total,
+		}: Order = await orderServiceTx.retrieveWithTotals(orderEdit.order_id, {
+			relations: ['customer', 'payments'],
+		});
+
+		// Update the payment amount
+		await this.refreshPayment(payments[0].id, total);
+
+		// Find the item update change
+		const changeItem = orderEdit.changes.find((change) => {
+			return change.type === 'item_update';
+		});
+
+		if (!changeItem) {
+			return;
+		}
+
+		// Get the pricing of the product variant
+		const pricingItem = await pricingServiceTx.getProductVariantPricing(
+			{
+				id: changeItem.line_item.variant_id,
+				product_id: changeItem.line_item.product_id,
+			},
+			{
+				customer_id,
+				currency_code,
+			}
+		);
+
+		// Insert or Update the private price of the
+		// customer based on the calculated price
+		if (
+			customer_id &&
+			pricingItem &&
+			pricingItem.calculated_price_type !== 'sale' &&
+			changeItem.line_item.unit_price < pricingItem.calculated_price
+		) {
+			const upsertPriceListInput = {
+				currency_code: currency_code,
+				amount: changeItem.line_item.unit_price,
+				variant_id: changeItem.line_item.variant_id,
+			};
+			await priceListServiceTx.upsertPrivatePriceList(
+				{
+					id: customer_id,
+					name: `${customer?.last_name} ${customer?.first_name}`,
+				},
+				upsertPriceListInput
+			);
+		}
+	}
+
+	/**
+	 * Confirms an order edit by updating its status and performing necessary updates on related entities.
+	 *
+	 * @param {string} orderEditId - The ID of the order edit to confirm.
+	 * @param {Object} context - Additional context for the confirmation.
+	 * @param {string} [context.confirmedBy] - The identifier of the user who confirmed the order edit.
+	 *
+	 * @returns {Promise<OrderEdit>} The confirmed order edit.
+	 *
+	 * @throws {MedusaError} If the order edit has a status of CANCELED or DECLINED.
+	 */
+	async confirm(
+		orderEditId: string,
+		context: { confirmedBy?: string } = {}
+	): Promise<OrderEdit> {
+		return await this.atomicPhase_(async (manager) => {
+			const orderEditRepository = manager.withRepository(
+				this.orderEditRepository_
+			);
+
+			let orderEdit = await this.retrieve(orderEditId);
+
+			if (
+				[OrderEditStatus.CANCELED, OrderEditStatus.DECLINED].includes(
+					orderEdit.status
+				)
+			) {
+				throw new MedusaError(
+					MedusaError.Types.NOT_ALLOWED,
+					`Cannot confirm an order edit with status ${orderEdit.status}`
+				);
+			}
+
+			if (orderEdit.status === OrderEditStatus.CONFIRMED) {
+				return orderEdit;
+			}
+
+			const lineItemServiceTx = this.lineItemService_.withTransaction(manager);
+
+			const [originalOrderLineItems] = await promiseAll([
+				lineItemServiceTx.update(
+					[
+						{ order_id: orderEdit.order_id, order_edit_id: Not(orderEditId) },
+						{ order_id: orderEdit.order_id, order_edit_id: IsNull() },
+					],
+					{ order_id: null }
+				),
+				lineItemServiceTx.update(
+					{ order_edit_id: orderEditId },
+					{ order_id: orderEdit.order_id }
+				),
+			]);
+
+			orderEdit.confirmed_at = new Date();
+			orderEdit.confirmed_by = context.confirmedBy;
+
+			orderEdit = await orderEditRepository.save(orderEdit);
+
+			if (this.inventoryService_) {
+				const itemsIds = originalOrderLineItems.map((i) => i.id);
+				await this.inventoryService_!.deleteReservationItemsByLineItem(
+					itemsIds,
+					{
+						transactionManager: manager,
+					}
+				);
+			}
+
+			await this.customerPrivatePrice(orderEditId);
+			await this.eventBusService_
+				.withTransaction(manager)
+				.emit(OrderEditService.Events.CONFIRMED, { id: orderEditId });
+
+			return orderEdit;
 		});
 	}
 

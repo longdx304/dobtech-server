@@ -30,8 +30,9 @@ import {
 import { IInventoryService } from '@medusajs/types';
 import { SupplierOrder } from 'src/models/supplier-order';
 import OrderEditRepository from '../repositories/order-edit';
-import SupplierOrderService from './supplier-order';
 import MyLineItemService from './my-line-item';
+import MyPaymentService from './my-payment';
+import SupplierOrderService from './supplier-order';
 
 type InjectedDependencies = {
 	manager: EntityManager;
@@ -46,6 +47,7 @@ type InjectedDependencies = {
 	taxProviderService: TaxProviderService;
 	orderEditItemChangeService: OrderEditItemChangeService;
 	productVariantService: ProductVariantService;
+	myPaymentService: MyPaymentService;
 	inventoryService?: IInventoryService;
 };
 
@@ -83,6 +85,7 @@ export default class MyOrderEditService extends TransactionBaseService {
 	protected readonly inventoryService_: IInventoryService | undefined;
 	protected readonly productVariantService_: ProductVariantService;
 	protected readonly myLineItemService_: MyLineItemService;
+	protected readonly myPaymentService_: MyPaymentService;
 
 	constructor({
 		orderEditRepository,
@@ -97,6 +100,7 @@ export default class MyOrderEditService extends TransactionBaseService {
 		inventoryService,
 		productVariantService,
 		myLineItemService,
+		myPaymentService,
 	}: InjectedDependencies) {
 		// eslint-disable-next-line prefer-rest-params
 		super(arguments[0]);
@@ -113,6 +117,8 @@ export default class MyOrderEditService extends TransactionBaseService {
 		this.inventoryService_ = inventoryService;
 		this.productVariantService_ = productVariantService;
 		this.myLineItemService_ = myLineItemService;
+
+		this.myPaymentService_ = myPaymentService;
 	}
 
 	async retrieveSupplierOrderEdit(
@@ -363,7 +369,7 @@ export default class MyOrderEditService extends TransactionBaseService {
 	async updateLineItemSupplierOrderEdit(
 		orderEditId: string,
 		itemId: string,
-		data: { quantity?: number, unit_price?: number }
+		data: { quantity?: number; unit_price?: number }
 	): Promise<void> {
 		return await this.atomicPhase_(async (manager) => {
 			const orderEdit = await this.retrieveSupplierOrderEdit(orderEditId, {
@@ -559,11 +565,6 @@ export default class MyOrderEditService extends TransactionBaseService {
 				);
 			}
 
-			// list all line items in the supplier order edit
-			const lineItemList = await lineItemServiceTx.list({
-				supplier_order_id: orderEdit.supplier_order_id,
-			});
-
 			const regionId = orderEdit.supplier_order.region_id;
 
 			const lineItemData = await lineItemServiceTx.generate(
@@ -714,6 +715,65 @@ export default class MyOrderEditService extends TransactionBaseService {
 		});
 	}
 
+	protected async refreshPayment(
+		paymentId: string,
+		amount: number
+	): Promise<void> {
+		const myPaymentServiceTx = this.myPaymentService_.withTransaction(
+			this.activeManager_
+		);
+		try {
+			await myPaymentServiceTx.updateAmountPayment(paymentId, amount);
+			console.log('total');
+		} catch (error) {
+			throw new MedusaError(
+				MedusaError.Types.INVALID_DATA,
+				`Failed to update payment with id ${paymentId}`
+			);
+		}
+	}
+	/**
+	 * Updates the private price for a customer based on the changes in an order edit.
+	 *
+	 * @param manager - The transaction manager to use for database operations.
+	 * @param orderEditId - The ID of the order edit to process.
+	 * @returns A promise that resolves when the operation is complete.
+	 *
+	 * This method performs the following steps:
+	 * 1. Retrieves the order edit and its related changes.
+	 * 2. Finds the item update change in the order edit.
+	 * 3. Retrieves the customer, currency code, and payment details of the order.
+	 * 4. Updates the payment amount based on the total order amount.
+	 * 5. Retrieves the pricing of the product variant for the customer.
+	 * 6. Inserts or updates the private price of the customer if certain conditions are met.
+	 */
+	protected async refreshSupplierPayment(orderEditId: string): Promise<void> {
+		const supplierOrderServiceTx = this.supplierOrderService_.withTransaction(
+			this.activeManager_
+		);
+		// Retrieve the order edit
+		const orderEdit = await this.retrieveSupplierOrderEdit(orderEditId, {
+			relations: [
+				'changes',
+				'changes.line_item',
+				'changes.original_line_item',
+				'changes.original_line_item.variant',
+			],
+		});
+
+		// Get the customer, currency code of the order
+		const { payments, total }: SupplierOrder =
+			await supplierOrderServiceTx.retrieveWithTotals(
+				orderEdit.supplier_order_id,
+				{
+					relations: ['supplier', 'payments'],
+				}
+			);
+
+		// Update the payment amount
+		await this.refreshPayment(payments[0].id, total);
+	}
+
 	async confirmSupplierOrderEdit(
 		orderEditId: string,
 		context: { confirmedBy?: string } = {}
@@ -761,6 +821,8 @@ export default class MyOrderEditService extends TransactionBaseService {
 			orderEdit.confirmed_by = context.confirmedBy;
 
 			orderEdit = await orderEditRepository.save(orderEdit);
+
+			await this.refreshSupplierPayment(orderEditId);
 
 			await this.eventBusService_
 				.withTransaction(manager)
