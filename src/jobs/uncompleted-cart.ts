@@ -40,6 +40,6 @@ export default async function handler({
 
 export const config: ScheduledJobConfig = {
 	name: 'uncompleted-cart-delete-once-a-day',
-	schedule: '0 17 * * *', // Run daily at 00:00 AM GMT+7
+	schedule: '0 5 * * *', 
 	data: {},
 };
