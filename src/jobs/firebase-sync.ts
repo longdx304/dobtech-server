@@ -32,7 +32,7 @@ const emailConfig = {
 	},
 } as TransportOptions;
 
-const adminEmail = process.env.ADMIN_EMAIL;
+const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_FROM_ADDRESS;
 const fromEmail = process.env.EMAIL_FROM_ADDRESS;
 
 // Sends an error email to the administrator whenever an error occurs while syncing inventory.
@@ -68,7 +68,7 @@ async function sendErrorEmail(error: Error, details: any) {
 // Gets inventory from Firebase
 async function getFirebaseInventory(db) {
 	const stock = {};
-	const colRef = collection(db, 'products_test');
+	const colRef = collection(db, 'products');
 	const snapshot = await getDocs(colRef);
 
 	snapshot.forEach((doc) => {
@@ -135,12 +135,18 @@ export default async function handler({
 
 		// Get inventory data from Firebase
 		const firebaseInventory = await getFirebaseInventory(db);
+		logger.info(
+			`Inventory data fetched from Firebase: ${
+				Object.keys(firebaseInventory).length
+			}`
+		);
 
 		// Get all variants from Medusa
 		const variants = await productVariantService.list(
 			{},
 			{ select: ['id', 'sku', 'inventory_quantity'] }
 		);
+		logger.info(`Variants fetched from Database: ${variants.length}`);
 
 		// Prepare batch update data
 		const updateData: UpdateData[] = [];
@@ -161,12 +167,15 @@ export default async function handler({
 			}
 		}
 
+		logger.info(`Inventory update data prepared: ${updateData.length}`);
+
 		// Perform batch update if there are changes
 		if (updateData.length > 0) {
 			logger.info(`Updating inventory for ${updateData.length} variants`);
 			await productVariantService.update(updateData);
 			logger.info('Inventory update completed successfully');
 		} else {
+			// No updates required
 			logger.info('No inventory updates required');
 		}
 	} catch (error) {
@@ -184,6 +193,6 @@ export default async function handler({
 
 export const config: ScheduledJobConfig = {
 	name: 'sync-firebase-inventory',
-	schedule: '15 9 * * *',
+	schedule: '0 5 * * *',
 	data: {},
 };
