@@ -172,6 +172,7 @@ export default class MyOrderEditService extends TransactionBaseService {
 				'changes.line_item',
 				'changes.line_item.variant',
 				'changes.original_line_item',
+				'changes.original_line_item.variant',
 			],
 		});
 
