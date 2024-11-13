@@ -184,6 +184,6 @@ export default async function handler({
 
 export const config: ScheduledJobConfig = {
 	name: 'sync-firebase-inventory',
-	schedule: '0 5 * * *',
+	schedule: '15 9 * * *',
 	data: {},
 };
