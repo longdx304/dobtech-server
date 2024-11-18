@@ -221,6 +221,10 @@ class SupplierOrderService extends TransactionBaseService {
 
 		const { q, ...supplierOrderSelectorRest } = selector;
 
+		config.order = config.order || {
+			created_at: 'ASC',
+		};
+
 		const query = buildQuery(supplierOrderSelectorRest, config);
 
 		// Get totals relations and transform query for totals
