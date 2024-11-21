@@ -86,7 +86,7 @@ class WarehouseService extends TransactionBaseService {
 		);
 	}
 
-	async createWithVariants(
+	async createWarehouseWithVariant(
 		data: CreateWarehouseWithVariant
 	): Promise<Warehouse> {
 		return await this.atomicPhase_(
@@ -98,20 +98,42 @@ class WarehouseService extends TransactionBaseService {
 				const warehouseInventoryServiceTx =
 					this.warehouseInventoryService_.withTransaction(transactionManager);
 
-				// Create Warehouse
-				const { variant_id, ...warehouseData } = data;
-				const warehouse = warehouseRepo.create(warehouseData);
-				const savedWarehouse = await warehouseRepo.save(warehouse);
+				let warehouse: Warehouse;
 
-				// Create associated WarehouseInventory
-				if (variant_id) {
-					await warehouseInventoryServiceTx.create({
-						warehouse_id: savedWarehouse.id,
-						variant_id: variant_id,
+				// If warehouse_id is provided, retrieve the existing warehouse
+				if (data.warehouse_id) {
+					warehouse = await warehouseRepo.findOne({
+						where: { id: data.warehouse_id },
 					});
+
+					if (!warehouse) {
+						throw new Error(`Warehouse with ID ${data.warehouse_id} not found`);
+					}
+				} else {
+					// Check if a warehouse with the same location already exists
+					const existingWarehouse = await warehouseRepo.findOne({
+						where: { location: data.location },
+					});
+
+					if (existingWarehouse) {
+						// Use existing warehouse
+						warehouse = existingWarehouse;
+					} else {
+						// Create new warehouse
+						warehouse = warehouseRepo.create({
+							location: data.location,
+						});
+						warehouse = await warehouseRepo.save(warehouse);
+					}
 				}
 
-				return savedWarehouse;
+				// Create Warehouse Inventory
+				await warehouseInventoryServiceTx.create({
+					warehouse_id: warehouse.id,
+					variant_id: data.variant_id,
+				});
+
+				return warehouse;
 			}
 		);
 	}

@@ -12,7 +12,7 @@ export async function POST(
 	const data = (await req.body) as CreateWarehouseWithVariant;
 
 	try {
-		const warehouse = await warehouseService.createWithVariants(data);
+		const warehouse = await warehouseService.createWarehouseWithVariant(data);
 		return res.status(200).json({ warehouse });
 	} catch (error) {
 		return res.status(500).json({ error: error.message });
