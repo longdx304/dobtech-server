@@ -9,6 +9,7 @@ import {
 	Unique,
 } from 'typeorm';
 import { Warehouse } from './warehouse';
+import { ItemUnit } from './item-unit';
 
 @Entity()
 @Unique(['warehouse_id', 'variant_id'])
@@ -27,6 +28,10 @@ export class WarehouseInventory extends BaseEntity {
 
 	@Column('varchar', { nullable: true })
 	unit_id: string;
+
+	@ManyToOne(() => ItemUnit, (item_unit) => item_unit.unit)
+	@JoinColumn({ name: 'unit_id' })
+	item_unit: ItemUnit;
 
 	@ManyToOne(() => Warehouse, (warehouse) => warehouse.inventories)
 	@JoinColumn({ name: 'warehouse_id' })

@@ -26,14 +26,15 @@ class WarehouseInventoryService extends TransactionBaseService {
 		});
 	}
 
-	async retrieve(id: string): Promise<WarehouseInventory> {
+	async getByVariant(variantId: string): Promise<WarehouseInventory[]> {
 		return await this.atomicPhase_(async (manager: EntityManager) => {
 			const warehouseInventoryRepo = manager.withRepository(
 				this.warehouseInventoryRepository_
 			);
 
-			const warehouseInventory = await warehouseInventoryRepo.findOne({
-				where: { id },
+			const warehouseInventory = await warehouseInventoryRepo.find({
+				where: { variant_id: variantId },
+				relations: ['warehouse', 'item_unit'],
 			});
 
 			if (!warehouseInventory) {

@@ -153,6 +153,7 @@ class WarehouseService extends TransactionBaseService {
 
 		return warehouse;
 	}
+
 	async update(id: string, data: Partial<Warehouse>): Promise<Warehouse> {
 		const warehouse = await this.retrieve(id);
 
