@@ -12,23 +12,28 @@ import {
 } from 'src/types/warehouse';
 import { EntityManager, FindOptionsWhere, ILike } from 'typeorm';
 import WarehouseInventoryService from './warehouse-inventory';
+import WarehouseInventoryRepository from 'src/repositories/warehouse-inventory';
 
 type InjectedDependencies = {
 	manager: EntityManager;
 	warehouseRepository: typeof WarehouseRepository;
+	warehouseInventoryRepository: typeof WarehouseInventoryRepository;
 	warehouseInventoryService: WarehouseInventoryService;
 };
 
 class WarehouseService extends TransactionBaseService {
 	protected warehouseRepository_: typeof WarehouseRepository;
+	protected warehouseInventoryRepository_: typeof WarehouseInventoryRepository;
 	protected warehouseInventoryService_: WarehouseInventoryService;
 	constructor({
 		warehouseRepository,
+		warehouseInventoryRepository,
 		warehouseInventoryService,
 	}: InjectedDependencies) {
 		super(arguments[0]);
 
 		this.warehouseRepository_ = warehouseRepository;
+		this.warehouseInventoryRepository_ = warehouseInventoryRepository;
 		this.warehouseInventoryService_ = warehouseInventoryService;
 	}
 
@@ -94,6 +99,9 @@ class WarehouseService extends TransactionBaseService {
 				const warehouseRepo = transactionManager.withRepository(
 					this.warehouseRepository_
 				);
+				const warehouseInventoryRepo = transactionManager.withRepository(
+					this.warehouseInventoryRepository_
+				);
 
 				const warehouseInventoryServiceTx =
 					this.warehouseInventoryService_.withTransaction(transactionManager);
@@ -125,6 +133,23 @@ class WarehouseService extends TransactionBaseService {
 						});
 						warehouse = await warehouseRepo.save(warehouse);
 					}
+				}
+
+				// Check if warehouse inventory already exists for this variant
+				const existingWarehouseInventory = await warehouseInventoryRepo.findOne(
+					{
+						where: {
+							warehouse_id: warehouse.id,
+							variant_id: data.variant_id,
+						},
+					}
+				);
+
+				// If warehouse inventory exists, throw an error
+				if (existingWarehouseInventory) {
+					throw new Error(
+						`Warehouse inventory already exists for warehouse ${warehouse.id} and variant ${data.variant_id}`
+					);
 				}
 
 				// Create Warehouse Inventory
