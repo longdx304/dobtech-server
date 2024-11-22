@@ -1,3 +1,4 @@
+import { MedusaError } from '@medusajs/utils';
 import {
 	buildQuery,
 	FindConfig,
@@ -115,7 +116,7 @@ class WarehouseService extends TransactionBaseService {
 					});
 
 					if (!warehouse) {
-						throw new Error(`Warehouse with ID ${data.warehouse_id} not found`);
+						throw new MedusaError(`Warehouse with ID ${data.warehouse_id} not found`);
 					}
 				} else {
 					// Check if a warehouse with the same location already exists
@@ -147,8 +148,9 @@ class WarehouseService extends TransactionBaseService {
 
 				// If warehouse inventory exists, throw an error
 				if (existingWarehouseInventory) {
-					throw new Error(
-						`Warehouse inventory already exists for warehouse ${warehouse.id} and variant ${data.variant_id}`
+					throw new MedusaError(
+						MedusaError.Types.DUPLICATE_ERROR,
+						`Vị trí này đã tạo trong kho với biến thể này`
 					);
 				}
 
