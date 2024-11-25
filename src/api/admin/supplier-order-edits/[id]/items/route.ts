@@ -15,28 +15,22 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 	const { id } = req.params;
 	const data = req.body as AddOrderEditLineItemInput;
 
-	try {
-		await manager.transaction(async (transactionManager) => {
-			await myOrderEditService
-				.withTransaction(transactionManager)
-				.addLineItemSupplierOrderEdit(id, data);
-		});
+	await manager.transaction(async (transactionManager) => {
+		await myOrderEditService
+			.withTransaction(transactionManager)
+			.addLineItemSupplierOrderEdit(id, data);
+	});
 
-		let orderEdit = await myOrderEditService.retrieveSupplierOrderEdit(id, {
-			relations: defaultOrderEditRelations,
-			select: defaultOrderEditFields,
-		} as any);
+	let orderEdit = await myOrderEditService.retrieveSupplierOrderEdit(id, {
+		relations: defaultOrderEditRelations,
+		select: defaultOrderEditFields,
+	} as any);
 
+	orderEdit = await myOrderEditService.decorateTotalsSupplierOrderEdit(
+		orderEdit
+	);
 
-		orderEdit = await myOrderEditService.decorateTotalsSupplierOrderEdit(
-			orderEdit
-		);
-
-
-		res.status(200).send({
-			order_edit: orderEdit,
-		});
-	} catch (error) {
-		return res.status(400).json({ error: error.message });
-	}
+	res.status(200).send({
+		order_edit: orderEdit,
+	});
 }

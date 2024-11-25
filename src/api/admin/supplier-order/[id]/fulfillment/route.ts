@@ -17,20 +17,16 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 
 	const data = req.body as MarkAsFulfilledReq;
 
-	try {
-		await manager.transaction(async (transactionManager) => {
-			await supplierOrderService
-				.withTransaction(transactionManager)
-				.updateFulfillmentStatus(id, data.status);
-		});
+	await manager.transaction(async (transactionManager) => {
+		await supplierOrderService
+			.withTransaction(transactionManager)
+			.updateFulfillmentStatus(id, data.status);
+	});
 
-		const supplierOrder = await supplierOrderService.retrieveWithTotals(
-			id,
-			req.retrieveConfig
-		);
+	const supplierOrder = await supplierOrderService.retrieveWithTotals(
+		id,
+		req.retrieveConfig
+	);
 
-		return res.status(200).json({ supplierOrder });
-	} catch (error) {
-		return res.status(400).json({ error: error.message });
-	}
+	return res.status(200).json({ supplierOrder });
 }

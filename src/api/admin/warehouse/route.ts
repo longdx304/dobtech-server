@@ -26,21 +26,17 @@ export async function GET(
 		}
 	);
 
-	try {
-		const [warehouse, count] = await warehouseService.listAndCount(
-			filterableFields,
-			listConfig
-		);
+	const [warehouse, count] = await warehouseService.listAndCount(
+		filterableFields,
+		listConfig
+	);
 
-		return res.status(200).json({
-			warehouse,
-			count,
-			offset: listConfig.skip,
-			limit: listConfig.take,
-		});
-	} catch (error) {
-		return res.status(500).json({ error: error.message });
-	}
+	return res.status(200).json({
+		warehouse,
+		count,
+		offset: listConfig.skip,
+		limit: listConfig.take,
+	});
 }
 
 export async function POST(
@@ -52,12 +48,8 @@ export async function POST(
 
 	const data = (await req.body) as Partial<Warehouse>;
 
-	try {
-		const warehouse = await warehouseService.create(data);
-		return res.status(200).json({ warehouse });
-	} catch (error) {
-		return res.status(500).json({ error: error.message });
-	}
+	const warehouse = await warehouseService.create(data);
+	return res.status(200).json({ warehouse });
 }
 
 export class AdminGetWarehousesParams extends extendedFindParamsMixin({
