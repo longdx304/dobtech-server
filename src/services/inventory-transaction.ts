@@ -107,7 +107,7 @@ class InventoryTransactionService extends TransactionBaseService {
 			const lineItem = await lineItemServiceTx.retrieve(data.line_item_id);
 
 			// check fulfillment quantity is less than quantity
-			if (lineItem.fulfilled_quantity >= data.quantity) {
+			if (lineItem.fulfilled_quantity > lineItem.quantity) {
 				throw new MedusaError(
 					MedusaError.Types.DUPLICATE_ERROR,
 					`Line item has already been fulfilled`
