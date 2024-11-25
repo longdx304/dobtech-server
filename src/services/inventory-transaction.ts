@@ -3,14 +3,15 @@ import {
 	ProductVariantService,
 	TransactionBaseService,
 } from '@medusajs/medusa';
+import { MedusaError } from '@medusajs/utils';
 import { InventoryTransaction } from 'src/models/inventory-transaction';
 import InventoryTransactionRepository from 'src/repositories/inventory-transaction';
 import WarehouseInventoryRepository from 'src/repositories/warehouse-inventory';
+import { CreateInventoryTransaction } from 'src/types/inventory-transaction';
 import { EntityManager } from 'typeorm';
+import ItemUnitService from './item-unit';
 import WarehouseService from './warehouse';
 import WarehouseInventoryService from './warehouse-inventory';
-import { CreateInventoryTransaction } from 'src/types/inventory-transaction';
-import ItemUnitService from './item-unit';
 
 type InjectedDependencies = {
 	manager: EntityManager;
@@ -51,37 +52,95 @@ class InventoryTransactionService extends TransactionBaseService {
 		this.itemUnitService_ = itemUnitService;
 	}
 
-	async create(data: Partial<CreateInventoryTransaction>) {
+	async createInbound(data: Partial<CreateInventoryTransaction>) {
 		return await this.atomicPhase_(async (manager: EntityManager) => {
 			const inventoryTransactionRepo = manager.withRepository(
 				this.inventoryTransactionRepository_
 			);
 
-			const {
-				unit_id,
-				quantity,
-				variant_id,
-				warehouse_id,
-				supplier_order_id,
-				type,
-				note,
-				user_id,
-			} = data;
+			const warehouseInventoryServiceTx =
+				this.warehouseInventoryService_.withTransaction(manager);
+
+			const productVariantServiceTx =
+				this.productVariantService_.withTransaction(manager);
+
+			const lineItemServiceTx = this.lineItemService_.withTransaction(manager);
+
+			const itemUnitServiceTx = this.itemUnitService_.withTransaction(manager);
+
+			// retrieve quantity of the item unit
+			// to calculate the inventory quantity
+			const retrievedUnit = await itemUnitServiceTx.retrieve(data.unit_id);
+			const inventoryQuantity = data.quantity * retrievedUnit.quantity;
+
+			// retrieve warehouse inventory
+			const warehouseInventory = await warehouseInventoryServiceTx.retrieve(
+				data.warehouse_inventory_id
+			);
+
+			// the initial check for warehouse inventory with item unit
+			if (!warehouseInventory.item_unit) {
+				await warehouseInventoryServiceTx.update(warehouseInventory.id, {
+					quantity: inventoryQuantity,
+					unit_id: data.unit_id,
+				});
+			}
+
+			if (warehouseInventory.item_unit) {
+				if (warehouseInventory.item_unit.id !== data.unit_id) {
+					await warehouseInventoryServiceTx.createUnitWithVariant({
+						warehouse_id: warehouseInventory.warehouse_id,
+						unit_id: data.unit_id,
+						variant_id: data.variant_id,
+						quantity: inventoryQuantity,
+					});
+				} else {
+					await warehouseInventoryServiceTx.updateUnitWithVariant({
+						unit_id: data.unit_id,
+						variant_id: data.variant_id,
+						quantity: warehouseInventory.quantity + inventoryQuantity,
+					});
+				}
+			}
+
+			// update fulfillment_quantity on the line item
+			const lineItem = await lineItemServiceTx.retrieve(data.line_item_id);
+
+			// check fulfillment quantity is less than quantity
+			if (lineItem.fulfilled_quantity >= data.quantity) {
+				throw new MedusaError(
+					MedusaError.Types.DUPLICATE_ERROR,
+					`Line item has already been fulfilled`
+				);
+			}
+
+			await lineItemServiceTx.update(data.line_item_id, {
+				fulfilled_quantity: lineItem.fulfilled_quantity + inventoryQuantity,
+			});
+
+			const retrievedProductVariant = await productVariantServiceTx.retrieve(
+				data.variant_id
+			);
+
+			// update the quantity on the product variant
+			await productVariantServiceTx.update(data.variant_id, {
+				inventory_quantity:
+					retrievedProductVariant.inventory_quantity + inventoryQuantity,
+			});
 
 			// create a new inventory transaction
 			const inventoryTransaction = inventoryTransactionRepo.create({
-				variant_id,
-				warehouse_id,
-				supplier_order_id,
-				quantity,
-				type,
-				note,
-				user_id,
+				...data,
+				quantity: inventoryQuantity,
 			});
 
-			return await inventoryTransactionRepo.save(inventoryTransaction);
+			await inventoryTransactionRepo.save(inventoryTransaction);
+
+			return inventoryTransaction;
 		});
 	}
+
+	async createOutbound(data: Partial<CreateInventoryTransaction>) {}
 
 	async listAndCount(
 		filter: Partial<InventoryTransaction>,

@@ -71,6 +71,75 @@ class WarehouseInventoryService extends TransactionBaseService {
 			await warehouseInventoryRepo.delete({ id });
 		});
 	}
+
+	async retrieve(id: string): Promise<WarehouseInventory | undefined> {
+		return await this.atomicPhase_(async (manager: EntityManager) => {
+			const warehouseInventoryRepo = manager.withRepository(
+				this.warehouseInventoryRepository_
+			);
+			const warehouseInventory = await warehouseInventoryRepo.findOne({
+				where: { id },
+				relations: ['warehouse', 'item_unit'],
+			});
+			return warehouseInventory;
+		});
+	}
+
+	async findOneById(
+		params: Partial<WarehouseInventory>
+	): Promise<WarehouseInventory | undefined> {
+		return await this.atomicPhase_(async (manager: EntityManager) => {
+			const warehouseInventoryRepo = manager.withRepository(
+				this.warehouseInventoryRepository_
+			);
+			const warehouseInventory = await warehouseInventoryRepo.findOne({
+				where: { ...params },
+			});
+			return warehouseInventory;
+		});
+	}
+
+	async createUnitWithVariant(data: {
+		warehouse_id: string;
+		unit_id: string;
+		variant_id: string;
+		quantity: number;
+	}): Promise<WarehouseInventory> {
+		return await this.atomicPhase_(async (manager: EntityManager) => {
+			const warehouseInventoryRepo = manager.withRepository(
+				this.warehouseInventoryRepository_
+			);
+
+			const warehouseInventory = warehouseInventoryRepo.create({
+				warehouse_id: data.warehouse_id,
+				unit_id: data.unit_id,
+				variant_id: data.variant_id,
+				quantity: data.quantity,
+			});
+
+			return await warehouseInventoryRepo.save(warehouseInventory);
+		});
+	}
+	async updateUnitWithVariant(data: {
+		unit_id: string;
+		variant_id: string;
+		quantity: number;
+	}): Promise<WarehouseInventory> {
+		return await this.atomicPhase_(async (manager: EntityManager) => {
+			const warehouseInventoryRepo = manager.withRepository(
+				this.warehouseInventoryRepository_
+			);
+			const warehouseInventory = await warehouseInventoryRepo.findOne({
+				where: { variant_id: data.variant_id, unit_id: data.unit_id },
+			});
+
+			if (warehouseInventory) {
+				warehouseInventory.quantity = data.quantity;
+			}
+
+			return await warehouseInventoryRepo.save(warehouseInventory);
+		});
+	}
 }
 
 export default WarehouseInventoryService;

@@ -12,7 +12,7 @@ export async function POST(
 	const data = (await req.body) as Partial<CreateInventoryTransaction>;
 
 	try {
-		const inventoryTransaction = await inventoryTransactionService.create(data);
+		const inventoryTransaction = await inventoryTransactionService.createOutbound(data);
 		return res.status(200).json({ inventoryTransaction });
 	} catch (error) {
 		return res.status(500).json({ error: error.message });

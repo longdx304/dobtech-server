@@ -116,7 +116,10 @@ class WarehouseService extends TransactionBaseService {
 					});
 
 					if (!warehouse) {
-						throw new MedusaError(`Warehouse with ID ${data.warehouse_id} not found`);
+						throw new MedusaError(
+							MedusaError.Types.INVALID_DATA,
+							`Warehouse with ID ${data.warehouse_id} not found`
+						);
 					}
 				} else {
 					// Check if a warehouse with the same location already exists
@@ -159,7 +162,6 @@ class WarehouseService extends TransactionBaseService {
 					warehouse_id: warehouse.id,
 					variant_id: data.variant_id,
 				});
-
 				return warehouse;
 			}
 		);
