@@ -35,6 +35,7 @@ class WarehouseInventoryService extends TransactionBaseService {
 			const warehouseInventory = await warehouseInventoryRepo.find({
 				where: { variant_id: variantId },
 				relations: ['warehouse', 'item_unit'],
+				order: { created_at: 'ASC' },
 			});
 
 			if (!warehouseInventory) {

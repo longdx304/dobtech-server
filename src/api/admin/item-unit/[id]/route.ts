@@ -1,8 +1,14 @@
-import { MedusaRequest, MedusaResponse } from '@medusajs/medusa';
+import {
+	AuthenticatedMedusaRequest,
+	MedusaResponse
+} from '@medusajs/medusa';
 import ItemUnitService from '../../../../services/item-unit';
 import { UpdateItemUnit } from '../../../../types/item-unit';
 
-export async function GET(req: MedusaRequest, res: MedusaResponse) {
+export async function GET(
+	req: AuthenticatedMedusaRequest,
+	res: MedusaResponse
+) {
 	const itemUnitService: ItemUnitService = req.scope.resolve('itemUnitService');
 	const { id } = req.params;
 
@@ -19,7 +25,10 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
 	}
 }
 
-export async function POST(req: MedusaRequest, res: MedusaResponse) {
+export async function POST(
+	req: AuthenticatedMedusaRequest,
+	res: MedusaResponse
+) {
 	const itemUnitService: ItemUnitService = req.scope.resolve('itemUnitService');
 	const { id } = req.params;
 	const data = (await req.body) as UpdateItemUnit;
@@ -32,20 +41,17 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 	}
 }
 
-export async function DELETE(req: MedusaRequest, res: MedusaResponse) {
+export async function DELETE(
+	req: AuthenticatedMedusaRequest,
+	res: MedusaResponse
+) {
 	const itemUnitService: ItemUnitService = req.scope.resolve('itemUnitService');
 	const { id } = req.params;
 
-	try {
-		await itemUnitService.delete(id);
-		return res.status(200).json({
-			id,
-			object: 'item_unit',
-			deleted: true,
-		});
-	} catch (error) {
-		return res.status(404).json({ error: error.message });
-	}
+	await itemUnitService.delete(id);
+	return res.status(200).json({
+		id,
+		object: 'item_unit',
+		deleted: true,
+	});
 }
-
-export const AUTHENTICATE = false;

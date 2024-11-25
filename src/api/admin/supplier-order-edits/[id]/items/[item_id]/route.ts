@@ -15,33 +15,27 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 
 	const body = req.body as any;
 
-	try {
-		const decoratedEdit = await manager.transaction(
-			async (transactionManager) => {
-				const orderEditTx =
-					myOrderEditService.withTransaction(transactionManager);
+	const decoratedEdit = await manager.transaction(
+		async (transactionManager) => {
+			const orderEditTx =
+				myOrderEditService.withTransaction(transactionManager);
 
-				await orderEditTx.updateLineItemSupplierOrderEdit(id, item_id, body);
+			await orderEditTx.updateLineItemSupplierOrderEdit(id, item_id, body);
 
-				const orderEdit = await orderEditTx.retrieveSupplierOrderEdit(id, {
-					relations: defaultOrderEditRelations,
-					select: defaultOrderEditFields,
-				} as any);
+			const orderEdit = await orderEditTx.retrieveSupplierOrderEdit(id, {
+				relations: defaultOrderEditRelations,
+				select: defaultOrderEditFields,
+			} as any);
 
-				await orderEditTx.decorateTotalsSupplierOrderEdit(orderEdit);
+			await orderEditTx.decorateTotalsSupplierOrderEdit(orderEdit);
 
-				return orderEdit;
-			}
-		);
+			return orderEdit;
+		}
+	);
 
-		res.status(200).send({
-			order_edit: decoratedEdit,
-		});
-	} catch (error) {
-		res.status(400).send({
-			message: error.message,
-		});
-	}
+	res.status(200).send({
+		order_edit: decoratedEdit,
+	});
 }
 
 export async function DELETE(req: MedusaRequest, res: MedusaResponse) {
@@ -51,27 +45,21 @@ export async function DELETE(req: MedusaRequest, res: MedusaResponse) {
 
 	const { id, item_id } = req.params;
 
-	try {
-		await manager.transaction(async (transactionManager) => {
-			await myOrderEditService
-				.withTransaction(transactionManager)
-				.removeLineItemSupplierOrderEdit(id, item_id);
-		});
+	await manager.transaction(async (transactionManager) => {
+		await myOrderEditService
+			.withTransaction(transactionManager)
+			.removeLineItemSupplierOrderEdit(id, item_id);
+	});
 
-		let orderEdit = await myOrderEditService.retrieveSupplierOrderEdit(id, {
-			relations: defaultOrderEditRelations,
-			select: defaultOrderEditFields,
-		} as any);
-		orderEdit = await myOrderEditService.decorateTotalsSupplierOrderEdit(
-			orderEdit
-		);
+	let orderEdit = await myOrderEditService.retrieveSupplierOrderEdit(id, {
+		relations: defaultOrderEditRelations,
+		select: defaultOrderEditFields,
+	} as any);
+	orderEdit = await myOrderEditService.decorateTotalsSupplierOrderEdit(
+		orderEdit
+	);
 
-		res.status(200).send({
-			order_edit: orderEdit,
-		});
-	} catch (error) {
-		res.status(400).send({
-			message: error.message,
-		});
-	}
+	res.status(200).send({
+		order_edit: orderEdit,
+	});
 }

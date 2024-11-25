@@ -9,12 +9,8 @@ export async function GET(
 		req.scope.resolve('warehouseService');
 	const { id } = req.params;
 
-	try {
-		const warehouse = await warehouseService.retrieve(id);
-		return res.status(200).json({ warehouse });
-	} catch (error) {
-		return res.status(500).json({ error: error.message });
-	}
+	const warehouse = await warehouseService.retrieve(id);
+	return res.status(200).json({ warehouse });
 }
 
 export async function DELETE(
@@ -25,14 +21,10 @@ export async function DELETE(
 		req.scope.resolve('warehouseService');
 	const { id } = req.params;
 
-	try {
-		await warehouseService.delete(id);
-		return res.status(200).json({
-			id,
-			object: 'warehouse',
-			deleted: true,
-		});
-	} catch (error) {
-		return res.status(500).json({ error: error.message });
-	}
+	await warehouseService.delete(id);
+	return res.status(200).json({
+		id,
+		object: 'warehouse',
+		deleted: true,
+	});
 }

@@ -1,6 +1,6 @@
 import type {
-  AuthenticatedMedusaRequest,
-  MedusaResponse,
+	AuthenticatedMedusaRequest,
+	MedusaResponse,
 } from '@medusajs/medusa';
 import ProductInboundService from 'src/services/product-inbound';
 import { FulfillSupplierOrderStt } from '../../../models/supplier-order';
@@ -21,17 +21,13 @@ export async function GET(
 		? (status as FulfillSupplierOrderStt)
 		: [FulfillSupplierOrderStt.DELIVERED, FulfillSupplierOrderStt.INVENTORIED];
 
-	try {
-		const [supplierOrder, count] = await productInboundService.listAndCount(
-			parsedStatuses,
-			{
-				skip: (offset ?? 0) as number,
-				take: (limit ?? 20) as number,
-			}
-		);
+	const [supplierOrder, count] = await productInboundService.listAndCount(
+		parsedStatuses,
+		{
+			skip: (offset ?? 0) as number,
+			take: (limit ?? 20) as number,
+		}
+	);
 
-		return res.status(200).json({ supplierOrder, count, offset, limit });
-	} catch (error) {
-		return res.status(500).json({ error: error.message });
-	}
+	return res.status(200).json({ supplierOrder, count, offset, limit });
 }
