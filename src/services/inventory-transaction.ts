@@ -132,6 +132,7 @@ class InventoryTransactionService extends TransactionBaseService {
 			const inventoryTransaction = inventoryTransactionRepo.create({
 				...data,
 				quantity: inventoryQuantity,
+				note: `Đã nhập kho ${data.quantity} ${retrievedUnit.unit} (${inventoryQuantity} đôi) vào vị trí ${warehouseInventory.warehouse.location}`,
 			});
 
 			await inventoryTransactionRepo.save(inventoryTransaction);

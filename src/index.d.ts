@@ -6,6 +6,13 @@ export declare module '@medusajs/medusa/dist/models/user' {
 	}
 }
 
+export declare module '@medusajs/medusa/dist/models/order' {
+	declare interface Order {
+		handler_id: string | null;
+		handler: User;
+	}
+}
+
 export declare module '@medusajs/medusa/dist/models/product-variant' {
 	declare interface ProductVariant {
 		supplier_price: number | null;
