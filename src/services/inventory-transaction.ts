@@ -141,7 +141,204 @@ class InventoryTransactionService extends TransactionBaseService {
 		});
 	}
 
-	async createOutbound(data: Partial<CreateInventoryTransaction>) {}
+	async removeInbound(data: Partial<CreateInventoryTransaction>) {
+		return await this.atomicPhase_(async (manager: EntityManager) => {
+			const inventoryTransactionRepo = manager.withRepository(
+				this.inventoryTransactionRepository_
+			);
+
+			const warehouseInventoryServiceTx =
+				this.warehouseInventoryService_.withTransaction(manager);
+
+			const productVariantServiceTx =
+				this.productVariantService_.withTransaction(manager);
+
+			const lineItemServiceTx = this.lineItemService_.withTransaction(manager);
+
+			const itemUnitServiceTx = this.itemUnitService_.withTransaction(manager);
+
+			// retrieve quantity of the item unit
+			// to calculate the inventory quantity
+			const retrievedUnit = await itemUnitServiceTx.retrieve(data.unit_id);
+			const inventoryQuantity = data.quantity * retrievedUnit.quantity;
+
+			// retrieve warehouse inventory
+			const warehouseInventory = await warehouseInventoryServiceTx.retrieve(
+				data.warehouse_inventory_id
+			);
+
+			await warehouseInventoryServiceTx.update(warehouseInventory.id, {
+				quantity: warehouseInventory.quantity - inventoryQuantity,
+			});
+
+			// update fulfillment_quantity on the line item
+			const lineItem = await lineItemServiceTx.retrieve(data.line_item_id);
+
+			// check fulfillment quantity is less than quantity
+			if (lineItem.fulfilled_quantity > lineItem.quantity) {
+				throw new MedusaError(
+					MedusaError.Types.DUPLICATE_ERROR,
+					`Line item has already been fulfilled`
+				);
+			}
+
+			await lineItemServiceTx.update(data.line_item_id, {
+				fulfilled_quantity: lineItem.fulfilled_quantity + inventoryQuantity,
+			});
+
+			const retrievedProductVariant = await productVariantServiceTx.retrieve(
+				data.variant_id
+			);
+
+			// update the quantity on the product variant
+			await productVariantServiceTx.update(data.variant_id, {
+				inventory_quantity:
+					retrievedProductVariant.inventory_quantity - inventoryQuantity,
+			});
+
+			// create a new inventory transaction
+			const inventoryTransaction = inventoryTransactionRepo.create({
+				...data,
+				quantity: inventoryQuantity,
+				note: `Đã xuất kho ${data.quantity} ${retrievedUnit.unit} (${inventoryQuantity} đôi) tại vị trí ${warehouseInventory.warehouse.location}`,
+			});
+
+			await inventoryTransactionRepo.save(inventoryTransaction);
+
+			return inventoryTransaction;
+		});
+	}
+
+	async createOutbound(data: Partial<CreateInventoryTransaction>) {
+		return await this.atomicPhase_(async (manager: EntityManager) => {
+			const inventoryTransactionRepo = manager.withRepository(
+				this.inventoryTransactionRepository_
+			);
+
+			const warehouseInventoryServiceTx =
+				this.warehouseInventoryService_.withTransaction(manager);
+
+			const lineItemServiceTx = this.lineItemService_.withTransaction(manager);
+
+			const itemUnitServiceTx = this.itemUnitService_.withTransaction(manager);
+
+			// retrieve quantity of the item unit
+			// to calculate the inventory quantity
+			const retrievedUnit = await itemUnitServiceTx.retrieve(data.unit_id);
+			const inventoryQuantity = data.quantity * retrievedUnit.quantity;
+
+			// retrieve warehouse inventory
+			const warehouseInventory = await warehouseInventoryServiceTx.retrieve(
+				data.warehouse_inventory_id
+			);
+
+			// the initial check for warehouse inventory with item unit
+			if (!warehouseInventory.item_unit) {
+				await warehouseInventoryServiceTx.update(warehouseInventory.id, {
+					quantity: inventoryQuantity,
+					unit_id: data.unit_id,
+				});
+			}
+
+			if (warehouseInventory.item_unit) {
+				if (warehouseInventory.item_unit.id !== data.unit_id) {
+					await warehouseInventoryServiceTx.createUnitWithVariant({
+						warehouse_id: warehouseInventory.warehouse_id,
+						unit_id: data.unit_id,
+						variant_id: data.variant_id,
+						quantity: inventoryQuantity,
+					});
+				} else {
+					await warehouseInventoryServiceTx.updateUnitWithVariant({
+						unit_id: data.unit_id,
+						variant_id: data.variant_id,
+						quantity: warehouseInventory.quantity + inventoryQuantity,
+					});
+				}
+			}
+
+			// update fulfillment_quantity on the line item
+			const lineItem = await lineItemServiceTx.retrieve(data.line_item_id);
+
+			// check fulfillment quantity is less than quantity
+			if (lineItem.fulfilled_quantity > lineItem.quantity) {
+				throw new MedusaError(
+					MedusaError.Types.DUPLICATE_ERROR,
+					`Line item has already been fulfilled`
+				);
+			}
+
+			await lineItemServiceTx.update(data.line_item_id, {
+				fulfilled_quantity: lineItem.fulfilled_quantity + inventoryQuantity,
+			});
+
+			// create a new inventory transaction
+			const inventoryTransaction = inventoryTransactionRepo.create({
+				...data,
+				quantity: inventoryQuantity,
+				note: `Đã nhập kho ${data.quantity} ${retrievedUnit.unit} (${inventoryQuantity} đôi) vào vị trí ${warehouseInventory.warehouse.location}`,
+			});
+
+			await inventoryTransactionRepo.save(inventoryTransaction);
+
+			return inventoryTransaction;
+		});
+	}
+
+	async removeOutbound(data: Partial<CreateInventoryTransaction>) {
+		return await this.atomicPhase_(async (manager: EntityManager) => {
+			const inventoryTransactionRepo = manager.withRepository(
+				this.inventoryTransactionRepository_
+			);
+
+			const warehouseInventoryServiceTx =
+				this.warehouseInventoryService_.withTransaction(manager);
+
+			const lineItemServiceTx = this.lineItemService_.withTransaction(manager);
+
+			const itemUnitServiceTx = this.itemUnitService_.withTransaction(manager);
+
+			// retrieve quantity of the item unit
+			// to calculate the inventory quantity
+			const retrievedUnit = await itemUnitServiceTx.retrieve(data.unit_id);
+			const inventoryQuantity = data.quantity * retrievedUnit.quantity;
+
+			// retrieve warehouse inventory
+			const warehouseInventory = await warehouseInventoryServiceTx.retrieve(
+				data.warehouse_inventory_id
+			);
+
+			await warehouseInventoryServiceTx.update(warehouseInventory.id, {
+				quantity: warehouseInventory.quantity - inventoryQuantity,
+			});
+
+			// update fulfillment_quantity on the line item
+			const lineItem = await lineItemServiceTx.retrieve(data.line_item_id);
+
+			// check fulfillment quantity is less than quantity
+			if (lineItem.fulfilled_quantity > lineItem.quantity) {
+				throw new MedusaError(
+					MedusaError.Types.DUPLICATE_ERROR,
+					`Line item has already been fulfilled`
+				);
+			}
+
+			await lineItemServiceTx.update(data.line_item_id, {
+				fulfilled_quantity: lineItem.fulfilled_quantity - inventoryQuantity,
+			});
+
+			// create a new inventory transaction
+			const inventoryTransaction = inventoryTransactionRepo.create({
+				...data,
+				quantity: inventoryQuantity,
+				note: `Đã xuất kho ${data.quantity} ${retrievedUnit.unit} (${inventoryQuantity} đôi) tạiÏ vị trí ${warehouseInventory.warehouse.location}`,
+			});
+
+			await inventoryTransactionRepo.save(inventoryTransaction);
+
+			return inventoryTransaction;
+		});
+	}
 
 	async listAndCount(
 		filter: Partial<InventoryTransaction>,
@@ -155,6 +352,7 @@ class InventoryTransactionService extends TransactionBaseService {
 			where: filter,
 			skip: options.skip,
 			take: options.take,
+			order: { created_at: 'DESC' },
 		});
 
 		return [transactions, count];

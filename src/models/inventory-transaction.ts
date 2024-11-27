@@ -19,7 +19,7 @@ export class InventoryTransaction extends BaseEntity {
 	warehouse_id: string;
 
 	@Column('varchar', { nullable: true })
-	supplier_order_id: string;
+	order_id: string;
 
 	@Column('int')
 	quantity: number;

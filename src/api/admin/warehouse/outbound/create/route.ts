@@ -11,7 +11,7 @@ export async function POST(
 
 	const data = (await req.body) as Partial<CreateInventoryTransaction>;
 
-	const inventoryTransaction = await inventoryTransactionService.removeInbound(
+	const inventoryTransaction = await inventoryTransactionService.createOutbound(
 		data
 	);
 	return res.status(200).json({ inventoryTransaction });
