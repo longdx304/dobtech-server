@@ -9,7 +9,7 @@ export class CreateInventoryTransaction1731983342304
                 "id" character varying NOT NULL,
                 "variant_id" character varying NOT NULL,
                 "warehouse_id" character varying NOT NULL,
-                "supplier_order_id" character varying NOT NULL,
+                "order_id" character varying NULL,
                 "quantity" integer NOT NULL,
                 "type" character varying NOT NULL,
                 "note" character varying,
