@@ -64,7 +64,7 @@ class ProductOutboundService extends TransactionBaseService {
 		const queryConfig = {
 			skip: config.skip || 0,
 			take: config.take || 20,
-			relations: config.relations,
+			relations: ['handler'],
 			order: config.order || { created_at: 'ASC' },
 			where: {
 				fulfillment_status: Array.isArray(status) ? In(status) : status,
@@ -480,6 +480,7 @@ class ProductOutboundService extends TransactionBaseService {
 		relationSet.add('shipping_methods.tax_lines');
 		relationSet.add('region');
 		relationSet.add('payments');
+		relationSet.add('handler');
 
 		return Array.from(relationSet.values());
 	}

@@ -9,7 +9,7 @@ export declare module '@medusajs/medusa/dist/models/user' {
 export declare module '@medusajs/medusa/dist/models/order' {
 	declare interface Order {
 		handler_id: string | null;
-		handler: User;
+		handler: Relation<User>;
 	}
 }
 

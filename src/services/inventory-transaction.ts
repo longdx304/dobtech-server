@@ -4,7 +4,7 @@ import {
 	TransactionBaseService,
 } from '@medusajs/medusa';
 import { MedusaError } from '@medusajs/utils';
-import { InventoryTransaction } from 'src/models/inventory-transaction';
+import { InventoryTransaction, TransactionType } from 'src/models/inventory-transaction';
 import InventoryTransactionRepository from 'src/repositories/inventory-transaction';
 import WarehouseInventoryRepository from 'src/repositories/warehouse-inventory';
 import { CreateInventoryTransaction } from 'src/types/inventory-transaction';
@@ -131,6 +131,7 @@ class InventoryTransactionService extends TransactionBaseService {
 			// create a new inventory transaction
 			const inventoryTransaction = inventoryTransactionRepo.create({
 				...data,
+				type: 'INBOUND' as TransactionType,
 				quantity: inventoryQuantity,
 				note: `Đã nhập kho ${data.quantity} ${retrievedUnit.unit} (${inventoryQuantity} đôi) vào vị trí ${warehouseInventory.warehouse.location}`,
 			});
@@ -200,6 +201,7 @@ class InventoryTransactionService extends TransactionBaseService {
 			const inventoryTransaction = inventoryTransactionRepo.create({
 				...data,
 				quantity: inventoryQuantity,
+				type: 'INBOUND' as TransactionType,
 				note: `Đã xuất kho ${data.quantity} ${retrievedUnit.unit} (${inventoryQuantity} đôi) tại vị trí ${warehouseInventory.warehouse.location}`,
 			});
 
@@ -261,21 +263,24 @@ class InventoryTransactionService extends TransactionBaseService {
 			const lineItem = await lineItemServiceTx.retrieve(data.line_item_id);
 
 			// check fulfillment quantity is less than quantity
-			if (lineItem.fulfilled_quantity > lineItem.quantity) {
-				throw new MedusaError(
-					MedusaError.Types.DUPLICATE_ERROR,
-					`Line item has already been fulfilled`
-				);
-			}
+			// if (lineItem.fulfilled_quantity > lineItem.quantity) {
+			// 	throw new MedusaError(
+			// 		MedusaError.Types.DUPLICATE_ERROR,
+			// 		`Line item has already been fulfilled`
+			// 	);
+			// }
 
 			await lineItemServiceTx.update(data.line_item_id, {
-				fulfilled_quantity: lineItem.fulfilled_quantity + inventoryQuantity,
+				fulfilled_quantity: lineItem.fulfilled_quantity - inventoryQuantity,
 			});
 
 			// create a new inventory transaction
 			const inventoryTransaction = inventoryTransactionRepo.create({
-				...data,
+				order_id: data.order_id,
+				variant_id: data.variant_id,
+				warehouse_id: data.warehouse_id,
 				quantity: inventoryQuantity,
+				type: 'OUTBOUND' as TransactionType,
 				note: `Đã nhập kho ${data.quantity} ${retrievedUnit.unit} (${inventoryQuantity} đôi) vào vị trí ${warehouseInventory.warehouse.location}`,
 			});
 
@@ -285,7 +290,7 @@ class InventoryTransactionService extends TransactionBaseService {
 		});
 	}
 
-	async removeOutbound(data: Partial<CreateInventoryTransaction>) {
+	async removeOutbound(data: CreateInventoryTransaction) {
 		return await this.atomicPhase_(async (manager: EntityManager) => {
 			const inventoryTransactionRepo = manager.withRepository(
 				this.inventoryTransactionRepository_
@@ -315,23 +320,18 @@ class InventoryTransactionService extends TransactionBaseService {
 			// update fulfillment_quantity on the line item
 			const lineItem = await lineItemServiceTx.retrieve(data.line_item_id);
 
-			// check fulfillment quantity is less than quantity
-			if (lineItem.fulfilled_quantity > lineItem.quantity) {
-				throw new MedusaError(
-					MedusaError.Types.DUPLICATE_ERROR,
-					`Line item has already been fulfilled`
-				);
-			}
-
 			await lineItemServiceTx.update(data.line_item_id, {
-				fulfilled_quantity: lineItem.fulfilled_quantity - inventoryQuantity,
+				fulfilled_quantity: lineItem.fulfilled_quantity + inventoryQuantity,
 			});
 
 			// create a new inventory transaction
 			const inventoryTransaction = inventoryTransactionRepo.create({
-				...data,
+				order_id: data.order_id,
+				variant_id: data.variant_id,
+				warehouse_id: data.warehouse_id,
 				quantity: inventoryQuantity,
-				note: `Đã xuất kho ${data.quantity} ${retrievedUnit.unit} (${inventoryQuantity} đôi) tạiÏ vị trí ${warehouseInventory.warehouse.location}`,
+				type: 'OUTBOUND' as TransactionType,
+				note: `Đã xuất kho ${data.quantity} ${retrievedUnit.unit} (${inventoryQuantity} đôi) tại vị trí ${warehouseInventory.warehouse.location}`,
 			});
 
 			await inventoryTransactionRepo.save(inventoryTransaction);

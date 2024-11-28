@@ -21,7 +21,7 @@ export async function GET(
 		? (status as FulfillmentStatus)
 		: [FulfillmentStatus.NOT_FULFILLED, FulfillmentStatus.FULFILLED];
 
-	const [order, count] = await productOutboundService.listAndCount(
+	const [orders, count] = await productOutboundService.listAndCount(
 		parsedStatuses,
 		{
 			skip: (offset ?? 0) as number,
@@ -29,5 +29,5 @@ export async function GET(
 		}
 	);
 
-	return res.status(200).json({ order, count, offset, limit });
+	return res.status(200).json({ orders, count, offset, limit });
 }
