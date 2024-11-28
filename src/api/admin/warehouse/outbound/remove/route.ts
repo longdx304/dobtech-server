@@ -9,7 +9,7 @@ export async function POST(
 	const inventoryTransactionService: InventoryTransactionService =
 		req.scope.resolve('inventoryTransactionService');
 
-	const data = (await req.body) as Partial<CreateInventoryTransaction>;
+	const data = (await req.body) as CreateInventoryTransaction;
 
 	const inventoryTransaction = await inventoryTransactionService.removeOutbound(
 		data

@@ -30,6 +30,7 @@ export declare module '@medusajs/medusa/dist/models/line-item' {
 	declare interface LineItem {
 		supplier_order_id: string;
 		supplier_order: SupplierOrder;
+		warehouse_quantity?: number | null;
 	}
 }
 

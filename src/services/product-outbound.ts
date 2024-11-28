@@ -61,13 +61,20 @@ class ProductOutboundService extends TransactionBaseService {
 	): Promise<[Order[], number]> {
 		const orderRepo = this.activeManager_.withRepository(this.orderRepository_);
 
+		let fulfillStt: any = status;
+		if (!Array.isArray(status)) {
+			status === FulfillmentStatus.FULFILLED
+				? (fulfillStt = status)
+				: (fulfillStt = Not(FulfillmentStatus.FULFILLED));
+		}
+
 		const queryConfig = {
 			skip: config.skip || 0,
 			take: config.take || 20,
 			relations: ['handler'],
 			order: config.order || { created_at: 'ASC' },
 			where: {
-				fulfillment_status: Array.isArray(status) ? In(status) : status,
+				fulfillment_status: Array.isArray(status) ? In(status) : fulfillStt,
 				// Only include orders with a non-null handler_id
 				handler_id: Not(IsNull()),
 			},
@@ -110,18 +117,6 @@ class ProductOutboundService extends TransactionBaseService {
 			throw new MedusaError(
 				MedusaError.Types.NOT_FOUND,
 				`Order with id ${orderId} was not found`
-			);
-		}
-
-		// Check if the order is in the correct status
-		if (
-			![FulfillmentStatus.NOT_FULFILLED, FulfillmentStatus.FULFILLED].includes(
-				raw.fulfillment_status
-			)
-		) {
-			throw new MedusaError(
-				MedusaError.Types.NOT_ALLOWED,
-				`Order with id ${orderId} is not in FULFILLED or NOT_FULFILLED status`
 			);
 		}
 

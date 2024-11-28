@@ -106,16 +106,8 @@ class InventoryTransactionService extends TransactionBaseService {
 			// update fulfillment_quantity on the line item
 			const lineItem = await lineItemServiceTx.retrieve(data.line_item_id);
 
-			// check fulfillment quantity is less than quantity
-			if (lineItem.fulfilled_quantity > lineItem.quantity) {
-				throw new MedusaError(
-					MedusaError.Types.DUPLICATE_ERROR,
-					`Line item has already been fulfilled`
-				);
-			}
-
 			await lineItemServiceTx.update(data.line_item_id, {
-				fulfilled_quantity: lineItem.fulfilled_quantity + inventoryQuantity,
+				warehouse_quantity: lineItem.warehouse_quantity + inventoryQuantity,
 			});
 
 			const retrievedProductVariant = await productVariantServiceTx.retrieve(
@@ -175,16 +167,8 @@ class InventoryTransactionService extends TransactionBaseService {
 			// update fulfillment_quantity on the line item
 			const lineItem = await lineItemServiceTx.retrieve(data.line_item_id);
 
-			// check fulfillment quantity is less than quantity
-			if (lineItem.fulfilled_quantity > lineItem.quantity) {
-				throw new MedusaError(
-					MedusaError.Types.DUPLICATE_ERROR,
-					`Line item has already been fulfilled`
-				);
-			}
-
 			await lineItemServiceTx.update(data.line_item_id, {
-				fulfilled_quantity: lineItem.fulfilled_quantity + inventoryQuantity,
+				warehouse_quantity: lineItem.warehouse_quantity + inventoryQuantity,
 			});
 
 			const retrievedProductVariant = await productVariantServiceTx.retrieve(
@@ -262,16 +246,8 @@ class InventoryTransactionService extends TransactionBaseService {
 			// update fulfillment_quantity on the line item
 			const lineItem = await lineItemServiceTx.retrieve(data.line_item_id);
 
-			// check fulfillment quantity is less than quantity
-			// if (lineItem.fulfilled_quantity > lineItem.quantity) {
-			// 	throw new MedusaError(
-			// 		MedusaError.Types.DUPLICATE_ERROR,
-			// 		`Line item has already been fulfilled`
-			// 	);
-			// }
-
 			await lineItemServiceTx.update(data.line_item_id, {
-				fulfilled_quantity: lineItem.fulfilled_quantity - inventoryQuantity,
+				warehouse_quantity: lineItem.warehouse_quantity - inventoryQuantity,
 			});
 
 			// create a new inventory transaction
@@ -321,7 +297,7 @@ class InventoryTransactionService extends TransactionBaseService {
 			const lineItem = await lineItemServiceTx.retrieve(data.line_item_id);
 
 			await lineItemServiceTx.update(data.line_item_id, {
-				fulfilled_quantity: lineItem.fulfilled_quantity + inventoryQuantity,
+				warehouse_quantity: lineItem.warehouse_quantity + inventoryQuantity,
 			});
 
 			// create a new inventory transaction
