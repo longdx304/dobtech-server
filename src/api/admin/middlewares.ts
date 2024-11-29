@@ -1,11 +1,9 @@
 // src/api/middlewares.ts
-import { parseCorsOrigins } from 'medusa-core-utils';
-import * as cors from 'cors';
 import {
-	authenticate,
-	authenticateCustomer,
-	MiddlewaresConfig,
+	MiddlewaresConfig
 } from '@medusajs/medusa';
+import * as cors from 'cors';
+import { parseCorsOrigins } from 'medusa-core-utils';
 
 export const config: MiddlewaresConfig = {
 	routes: [

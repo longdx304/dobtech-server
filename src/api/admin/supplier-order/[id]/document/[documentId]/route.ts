@@ -6,10 +6,6 @@ export async function DELETE(req: MedusaRequest, res: MedusaResponse) {
 		req.scope.resolve('supplierOrderDocumentService');
 	const { id, documentId } = req.params;
 
-	try {
-		await supplierOrderDocService.delete(documentId);
-		return res.status(200).json({ success: true });
-	} catch (error) {
-		return res.status(404).json({ error: error.message });
-	}
+	await supplierOrderDocService.delete(documentId);
+	return res.status(200).json({ success: true });
 }

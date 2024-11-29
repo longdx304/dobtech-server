@@ -10,10 +10,6 @@ export async function GET(
 	);
 	const { id } = req.params;
 
-	try {
-		const items = await supplierOrderService.retrieveLineItemsById(id);
-		res.status(200).json({ items });
-	} catch (error) {
-		res.status(400).json({ error: error.message });
-	}
+	const items = await supplierOrderService.retrieveLineItemsById(id);
+	res.status(200).json({ items });
 }

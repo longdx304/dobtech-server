@@ -3,7 +3,6 @@ import {
 	Cart,
 	EventBusService,
 	FindConfig,
-	FulfillmentStatus,
 	LineItem,
 	LineItemService,
 	NewTotalsService,
@@ -26,7 +25,6 @@ import {
 	isDefined,
 	MedusaError,
 } from '@medusajs/utils';
-import { SupplierOrder } from 'src/models/supplier-order';
 import SupplierOrderRepository from 'src/repositories/supplier-order';
 import {
 	CreateSupplierOrderInput,
@@ -35,6 +33,10 @@ import {
 } from 'src/types/supplier-orders';
 import { FlagRouter } from 'src/utils/flag-router';
 import { EntityManager } from 'typeorm';
+import {
+	FulfillSupplierOrderStt,
+	SupplierOrder,
+} from '../models/supplier-order';
 import MyCartService from './cart';
 import EmailsService from './emails';
 import MyPaymentProviderService from './my-payment-provider';
@@ -218,6 +220,10 @@ class SupplierOrderService extends TransactionBaseService {
 		);
 
 		const { q, ...supplierOrderSelectorRest } = selector;
+
+		config.order = config.order || {
+			created_at: 'ASC',
+		};
 
 		const query = buildQuery(supplierOrderSelectorRest, config);
 
@@ -612,7 +618,8 @@ class SupplierOrderService extends TransactionBaseService {
 				}
 
 				supplierOrder.status = OrderStatus.CANCELED;
-				supplierOrder.fulfillment_status = FulfillmentStatus.CANCELED;
+				supplierOrder.fulfillment_status =
+					FulfillSupplierOrderStt.NOT_FULFILLED;
 				supplierOrder.payment_status = PaymentStatus.CANCELED;
 				supplierOrder.canceled_at = new Date();
 
@@ -931,6 +938,105 @@ class SupplierOrderService extends TransactionBaseService {
 		supplierOrder.total = supplierOrder.subtotal + supplierOrder.tax_total;
 
 		return supplierOrder;
+	}
+
+	async updateFulfillmentStatus(
+		supplierOrderId: string,
+		status: FulfillSupplierOrderStt
+	): Promise<SupplierOrder> {
+		return await this.atomicPhase_(
+			async (transactionManager: EntityManager) => {
+				const supplierOrder = await this.retrieve(supplierOrderId);
+
+				if (!supplierOrder) {
+					throw new MedusaError(
+						MedusaError.Types.NOT_FOUND,
+						`Supplier order with id ${supplierOrderId} not found`
+					);
+				}
+
+				// Validate status transitions
+				const validTransitions = this.getValidFulfillmentTransitions(
+					supplierOrder.fulfillment_status
+				);
+				if (!validTransitions.includes(status)) {
+					throw new MedusaError(
+						MedusaError.Types.NOT_ALLOWED,
+						`Cannot transition fulfillment status from ${supplierOrder.fulfillment_status} to ${status}`
+					);
+				}
+
+				const supplierOrderRepo = transactionManager.withRepository(
+					this.supplierOrderRepository_
+				);
+
+				// Update the fulfillment status
+				supplierOrder.fulfillment_status = status;
+
+				// Set the appropriate timestamp based on the new status
+				switch (status) {
+					case FulfillSupplierOrderStt.DELIVERED:
+						supplierOrder.delivered_at = new Date();
+						break;
+
+					case FulfillSupplierOrderStt.INVENTORIED:
+						// Only set inventoried_at if it's not already set
+						if (!supplierOrder.inventoried_at) {
+							supplierOrder.inventoried_at = new Date();
+						}
+						break;
+
+					case FulfillSupplierOrderStt.REJECTED:
+						supplierOrder.rejected_at = new Date();
+						break;
+
+					case FulfillSupplierOrderStt.NOT_FULFILLED:
+						// Reset all timestamps when moving back to not fulfilled
+						supplierOrder.delivered_at = null;
+						supplierOrder.inventoried_at = null;
+						supplierOrder.rejected_at = null;
+						break;
+				}
+
+				const result = await supplierOrderRepo.save(supplierOrder);
+
+				// Emit appropriate events based on the new status
+				await this.eventBus_
+					.withTransaction(transactionManager)
+					.emit(SupplierOrderService.Events.FULFILLMENT_CREATED, {
+						id: result.id,
+						fulfillment_status: status,
+						no_notification: supplierOrder.no_notification,
+					});
+
+				return result;
+			}
+		);
+	}
+
+	/**
+	 * Helper method to determine valid fulfillment status transitions
+	 */
+	private getValidFulfillmentTransitions(
+		currentStatus: FulfillSupplierOrderStt
+	): FulfillSupplierOrderStt[] {
+		const statusTransitions = {
+			[FulfillSupplierOrderStt.NOT_FULFILLED]: [
+				FulfillSupplierOrderStt.DELIVERED,
+				FulfillSupplierOrderStt.REJECTED,
+			],
+			[FulfillSupplierOrderStt.DELIVERED]: [
+				FulfillSupplierOrderStt.INVENTORIED,
+				FulfillSupplierOrderStt.REJECTED,
+			],
+			[FulfillSupplierOrderStt.INVENTORIED]: [FulfillSupplierOrderStt.REJECTED],
+			[FulfillSupplierOrderStt.REJECTED]: [
+				FulfillSupplierOrderStt.DELIVERED,
+				FulfillSupplierOrderStt.INVENTORIED,
+			],
+		};
+
+		return statusTransitions[currentStatus] || [];
 	}
 
 	private getTotalsRelations(config: FindConfig<SupplierOrder>): string[] {

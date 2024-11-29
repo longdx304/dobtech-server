@@ -35,16 +35,11 @@ export enum OrderStatus {
 	REQUIRES_ACTION = 'requires_action',
 }
 
-export enum FulfillmentStatus {
+export enum FulfillSupplierOrderStt {
 	NOT_FULFILLED = 'not_fulfilled',
-	PARTIALLY_FULFILLED = 'partially_fulfilled',
-	FULFILLED = 'fulfilled',
-	PARTIALLY_SHIPPED = 'partially_shipped',
-	SHIPPED = 'shipped',
-	PARTIALLY_RETURNED = 'partially_returned',
-	RETURNED = 'returned',
-	CANCELED = 'canceled',
-	REQUIRES_ACTION = 'requires_action',
+	DELIVERED = 'delivered',
+	INVENTORIED = 'inventoried',
+	REJECTED = 'rejected',
 }
 
 export enum PaymentStatus {
@@ -91,10 +86,10 @@ export class SupplierOrder extends BaseEntity {
 
 	@DbAwareColumn({
 		type: 'enum',
-		enum: FulfillmentStatus,
+		enum: FulfillSupplierOrderStt,
 		default: 'not_fulfilled',
 	})
-	fulfillment_status: FulfillmentStatus;
+	fulfillment_status: FulfillSupplierOrderStt;
 
 	@DbAwareColumn({ type: 'enum', enum: PaymentStatus, default: 'not_paid' })
 	payment_status: PaymentStatus;
@@ -112,6 +107,15 @@ export class SupplierOrder extends BaseEntity {
 
 	@Column({ nullable: true, type: resolveDbType('timestamptz') })
 	canceled_at: Date;
+
+	@Column({ nullable: true, type: resolveDbType('timestamptz') })
+	delivered_at: Date;
+
+	@Column({ nullable: true, type: resolveDbType('timestamptz') })
+	inventoried_at: Date;
+
+	@Column({ nullable: true, type: resolveDbType('timestamptz') })
+	rejected_at: Date;
 
 	@Index()
 	@Column()

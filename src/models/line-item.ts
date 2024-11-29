@@ -14,4 +14,7 @@ export class LineItem extends MedusaLineItem {
   @ManyToOne(() => SupplierOrder, (supplier_order) => supplier_order.items)
   @JoinColumn({ name: "supplier_order_id" })
 	supplier_order: SupplierOrder
+
+  @Column({ default: 0 })
+	warehouse_quantity: number;
 }

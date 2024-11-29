@@ -8,12 +8,8 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 	const data = await req.body;
 	const { id } = req.params;
 
-	try {
-		await supplierOrderDocService.create(id, data as string[]);
-		return res.status(200).json({ success: true });
-	} catch (error) {
-		return res.status(404).json({ error: error.message });
-	}
+	await supplierOrderDocService.create(id, data as string[]);
+	return res.status(200).json({ success: true });
 }
 
 export async function DELETE(req: MedusaRequest, res: MedusaResponse) {

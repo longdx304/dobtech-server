@@ -24,26 +24,22 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
 		...(supplier_order_id && { supplier_order_id }),
 	};
 
-	try {
-		const [orderEdits, orderEditCount] = await myOrderEditService.listAndCount(
-			filterableFields
+	const [orderEdits, orderEditCount] = await myOrderEditService.listAndCount(
+		filterableFields
+	);
+
+	for (let orderEdit of orderEdits) {
+		orderEdit = await myOrderEditService.decorateTotalsSupplierOrderEdit(
+			orderEdit
 		);
-
-		for (let orderEdit of orderEdits) {
-			orderEdit = await myOrderEditService.decorateTotalsSupplierOrderEdit(
-				orderEdit
-			);
-		}
-
-		return res.status(200).json({
-			edits: orderEdits,
-			count: orderEditCount,
-			limit: limit,
-			offset: offset,
-		});
-	} catch (error) {
-		return res.status(500).json({ error: error.message });
 	}
+
+	return res.status(200).json({
+		edits: orderEdits,
+		count: orderEditCount,
+		limit: limit,
+		offset: offset,
+	});
 }
 
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
@@ -56,29 +52,24 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 
 	const createdBy = (req.user?.id ?? req.user?.userId) as string;
 
-	try {
-		const createdOrderEdit = await manager.transaction(
-			async (transactionManager) => {
-				return await myOrderEditService
-					.withTransaction(transactionManager)
-					.createSupplierOrderEdit(data, { createdBy });
-			}
-		);
+	const createdOrderEdit = await manager.transaction(
+		async (transactionManager) => {
+			return await myOrderEditService
+				.withTransaction(transactionManager)
+				.createSupplierOrderEdit(data, { createdBy });
+		}
+	);
 
-		let orderEdit = await myOrderEditService.retrieveSupplierOrderEdit(
-			createdOrderEdit.id,
-			{
-				relations: defaultOrderEditRelations,
-				select: defaultOrderEditFields,
-			} as any
-		);
+	let orderEdit = await myOrderEditService.retrieveSupplierOrderEdit(
+		createdOrderEdit.id,
+		{
+			relations: defaultOrderEditRelations,
+			select: defaultOrderEditFields,
+		} as any
+	);
 
-		orderEdit = await myOrderEditService.decorateTotalsSupplierOrderEdit(
-			orderEdit
-		);
-		return res.status(200).json({ order_edit: orderEdit });
-	} catch (error) {
-		console.log('error', error);
-		return res.status(500).json({ error: error.message });
-	}
+	orderEdit = await myOrderEditService.decorateTotalsSupplierOrderEdit(
+		orderEdit
+	);
+	return res.status(200).json({ order_edit: orderEdit });
 }

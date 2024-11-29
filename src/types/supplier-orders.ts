@@ -1,33 +1,3 @@
-enum SupplierOrderStatus {
-	pending = 'pending',
-	completed = 'completed',
-	archived = 'archived',
-	canceled = 'canceled',
-	requires_action = 'requires_action',
-}
-
-enum FulfillmentStatus {
-	not_fulfilled = 'not_fulfilled',
-	fulfilled = 'fulfilled',
-	partially_fulfilled = 'partially_fulfilled',
-	shipped = 'shipped',
-	partially_shipped = 'partially_shipped',
-	canceled = 'canceled',
-	returned = 'returned',
-	partially_returned = 'partially_returned',
-	requires_action = 'requires_action',
-}
-
-enum PaymentStatus {
-	captured = 'captured',
-	awaiting = 'awaiting',
-	not_paid = 'not_paid',
-	refunded = 'refunded',
-	partially_refunded = 'partially_refunded',
-	canceled = 'canceled',
-	requires_action = 'requires_action',
-}
-
 export type LineItem = {
 	variantId: string;
 	quantity: number;

@@ -15,23 +15,19 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 
 	const userId = req.user?.id ?? req.user?.userId;
 
-	try {
-		await manager.transaction(async (transactionManager) => {
-			await myOrderEditService
-				.withTransaction(transactionManager)
-				.cancelSupplierOrderEdit(id, { canceledBy: userId });
-		});
+	await manager.transaction(async (transactionManager) => {
+		await myOrderEditService
+			.withTransaction(transactionManager)
+			.cancelSupplierOrderEdit(id, { canceledBy: userId });
+	});
 
-		let orderEdit = await myOrderEditService.retrieveSupplierOrderEdit(id, {
-			relations: defaultOrderEditRelations,
-			select: defaultOrderEditFields,
-		} as any);
-		orderEdit = await myOrderEditService.decorateTotalsSupplierOrderEdit(
-			orderEdit
-		);
+	let orderEdit = await myOrderEditService.retrieveSupplierOrderEdit(id, {
+		relations: defaultOrderEditRelations,
+		select: defaultOrderEditFields,
+	} as any);
+	orderEdit = await myOrderEditService.decorateTotalsSupplierOrderEdit(
+		orderEdit
+	);
 
-    return res.status(200).json({ order_edit: orderEdit });
-	} catch (error) {
-		return res.status(500).json({ error: error.message });
-	}
+	return res.status(200).json({ order_edit: orderEdit });
 }

@@ -14,23 +14,19 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 
 	const { id } = req.params;
 
-	try {
-		await manager.transaction(async (transactionManager) => {
-			await supplierOrderService
-				.withTransaction(transactionManager)
-				.cancelSupplierOrder(id);
-		});
+	await manager.transaction(async (transactionManager) => {
+		await supplierOrderService
+			.withTransaction(transactionManager)
+			.cancelSupplierOrder(id);
+	});
 
-		const supplierOrder = await supplierOrderService.retrieveWithTotals(
-			id,
-			req.retrieveConfig,
-			{
-				includes: req.includes,
-			}
-		);
+	const supplierOrder = await supplierOrderService.retrieveWithTotals(
+		id,
+		req.retrieveConfig,
+		{
+			includes: req.includes,
+		}
+	);
 
-		res.json({ supplierOrder: cleanResponseData(supplierOrder, []) });
-	} catch (error) {
-		res.status(400).json({ error: error.message });
-	}
+	res.json({ supplierOrder: cleanResponseData(supplierOrder, []) });
 }
