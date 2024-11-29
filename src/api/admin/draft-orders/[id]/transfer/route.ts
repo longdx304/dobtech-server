@@ -1,11 +1,14 @@
+import { MedusaError, promiseAll } from '@medusajs/utils';
 import {
 	CartService,
 	cleanResponseData,
 	DraftOrderService,
 	MedusaRequest,
 	MedusaResponse,
+	Order,
 	OrderService,
 	PaymentProviderService,
+	ProductVariantInventoryService,
 } from '@medusajs/medusa';
 import {
 	defaultAdminOrdersFields,
@@ -27,6 +30,8 @@ export async function POST(
 	const orderService: OrderService = req.scope.resolve('orderService');
 	const cartService: CartService = req.scope.resolve('cartService');
 	const entityManager: EntityManager = req.scope.resolve('manager');
+	const productVariantInventoryService: ProductVariantInventoryService =
+		req.scope.resolve('productVariantInventoryService');
 
 	const order = await entityManager.transaction(async (manager) => {
 		const draftOrderServiceTx = draftOrderService.withTransaction(manager);
@@ -48,6 +53,20 @@ export async function POST(
 		await cartServiceTx.authorizePayment(cart.id);
 
 		let order = await orderServiceTx.createFromCart(cart.id);
+
+		// retrieve the created order
+		order = await orderServiceTx.retrieve(order.id, {
+			relations: defaultAdminOrdersRelations,
+			select: defaultAdminOrdersFields,
+		} as any);
+
+		// Reserve quantity after order creation
+		await reserveQuantityForDraftOrder(order, {
+			productVariantInventoryService: productVariantInventoryService,
+		});
+
+		await draftOrderServiceTx.registerCartCompletion(draftOrder.id, order.id);
+
 		order = await orderService
 			.withTransaction(manager)
 			.retrieveWithTotals(order.id, {
@@ -59,3 +78,42 @@ export async function POST(
 	});
 	res.status(200).json({ order: cleanResponseData(order, []) });
 }
+
+export const reserveQuantityForDraftOrder = async (
+	order: Order,
+	context: {
+		productVariantInventoryService: ProductVariantInventoryService;
+		locationId?: string;
+	}
+) => {
+	const { productVariantInventoryService, locationId } = context;
+	await promiseAll(
+		order?.items?.map(async (item) => {
+			if (item.variant_id) {
+				const inventoryConfirmed =
+					await productVariantInventoryService.confirmInventory(
+						item.variant_id,
+						item.quantity,
+						{ salesChannelId: order.sales_channel_id }
+					);
+
+				if (!inventoryConfirmed) {
+					throw new MedusaError(
+						MedusaError.Types.NOT_ALLOWED,
+						`Variant with id: ${item.variant_id} does not have the required inventory`,
+						MedusaError.Codes.INSUFFICIENT_INVENTORY
+					);
+				}
+
+				await productVariantInventoryService.reserveQuantity(
+					item.variant_id,
+					item.quantity,
+					{
+						lineItemId: item.id,
+						salesChannelId: order.sales_channel_id,
+					}
+				);
+			}
+		})
+	);
+};
