@@ -28,6 +28,7 @@ export type FilterableInventoryTransactionProps = PartialPick<
 	| 'note'
 	| 'quantity'
 	| 'user_id'
+	| 'type'
 > & {
 	variant: FilterableVariantProps;
 	q?: string;

@@ -21,9 +21,7 @@ import {
 	EntityManager,
 	FindManyOptions,
 	FindOptionsWhere,
-	ILike,
-	LessThanOrEqual,
-	MoreThanOrEqual,
+	ILike
 } from 'typeorm';
 import ItemUnitService from './item-unit';
 import WarehouseService from './warehouse';
@@ -337,6 +335,7 @@ class InventoryTransactionService extends TransactionBaseService {
 			q?: string;
 			start_at?: Date;
 			end_at?: Date;
+			type?: string;
 		} = {},
 		config: FindConfig<FilterableInventoryTransactionProps> = {
 			skip: 0,
@@ -350,6 +349,7 @@ class InventoryTransactionService extends TransactionBaseService {
 		let q: string | undefined;
 		let startAt: Date | undefined;
 		let endAt: Date | undefined;
+		let type: string | undefined;
 
 		if (selector.q) {
 			q = selector.q;
@@ -369,6 +369,9 @@ class InventoryTransactionService extends TransactionBaseService {
 		const query = {
 			...buildQuery(selector, config),
 			relations: ['variant', 'variant.product', 'warehouse'],
+			order: {
+				created_at: 'DESC',
+			},
 		} as FindManyOptions<InventoryTransaction>;
 
 		// Handle dynamic search if q exists
@@ -389,12 +392,12 @@ class InventoryTransactionService extends TransactionBaseService {
 			];
 		}
 
+		if (type) {
+			query.where = [{ ...query.where, type: type as TransactionType }];
+		}
+
 		if (startAt && endAt) {
 			query.where = [{ ...query.where, created_at: Between(startAt, endAt) }];
-		} else if (startAt) {
-			query.where = [{ ...query.where, created_at: MoreThanOrEqual(startAt) }];
-		} else if (endAt) {
-			query.where = [{ ...query.where, created_at: LessThanOrEqual(endAt) }];
 		}
 
 		return await inventoryTransactionRepo.findAndCount(query);

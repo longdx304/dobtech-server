@@ -8,7 +8,7 @@ export async function GET(
 	const inventoryTransactionService: InventoryTransactionService =
 		req.scope.resolve('inventoryTransactionService');
 
-	const { quantity, start_at, end_at, note, q } = req.query;
+	const { quantity, start_at, end_at, note, q, type } = req.query;
 
 	const selector: any = {};
 
@@ -19,10 +19,16 @@ export async function GET(
 		selector.start_at = new Date(start_at as string);
 	}
 	if (end_at) {
-		selector.end_at = new Date(end_at as string);
+		const endDate = new Date(end_at as string);
+		endDate.setHours(23, 59, 59, 999);
+		selector.end_at = endDate;
 	}
 	if (note) {
 		selector.note = note;
+	}
+
+	if (type) {
+		selector.type = type;
 	}
 
 	if (q) {
