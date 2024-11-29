@@ -1,3 +1,4 @@
+import { PartialPick, ProductVariant } from '@medusajs/medusa';
 import { InventoryTransaction } from 'src/models/inventory-transaction';
 
 export type CreateInventoryTransaction = {
@@ -12,3 +13,22 @@ export type CreateInventoryTransaction = {
 };
 
 export type UpdateInventoryTransaction = Partial<CreateInventoryTransaction>;
+
+export type FilterableVariantProps = PartialPick<
+	ProductVariant,
+	| 'sku'
+>;
+
+export type FilterableInventoryTransactionProps = PartialPick<
+	InventoryTransaction,
+	| 'warehouse_id'
+	| 'order_id'
+	| 'variant_id'
+	| 'warehouse'
+	| 'note'
+	| 'quantity'
+	| 'user_id'
+> & {
+	variant: FilterableVariantProps;
+	q?: string;
+};

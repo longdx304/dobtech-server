@@ -1,5 +1,13 @@
-import { BaseEntity, generateEntityId } from '@medusajs/medusa';
-import { BeforeInsert, Column, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
+import { BaseEntity, generateEntityId, ProductVariant } from '@medusajs/medusa';
+import {
+	BeforeInsert,
+	Column,
+	Entity,
+	JoinColumn,
+	ManyToOne,
+	OneToMany,
+	PrimaryColumn,
+} from 'typeorm';
 import { Warehouse } from './warehouse';
 
 export enum TransactionType {
@@ -14,6 +22,10 @@ export class InventoryTransaction extends BaseEntity {
 
 	@Column('varchar')
 	variant_id: string;
+
+	@ManyToOne(() => ProductVariant, (variant) => variant.id)
+	@JoinColumn({ name: 'variant_id' })
+	variant: ProductVariant;
 
 	@Column('varchar')
 	warehouse_id: string;

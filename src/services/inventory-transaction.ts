@@ -1,14 +1,30 @@
 import {
+	FindConfig,
 	LineItemService,
 	ProductVariantService,
+	Selector,
 	TransactionBaseService,
 } from '@medusajs/medusa';
-import { MedusaError } from '@medusajs/utils';
-import { InventoryTransaction, TransactionType } from 'src/models/inventory-transaction';
+import { buildQuery } from '@medusajs/utils';
+import {
+	InventoryTransaction,
+	TransactionType,
+} from 'src/models/inventory-transaction';
 import InventoryTransactionRepository from 'src/repositories/inventory-transaction';
 import WarehouseInventoryRepository from 'src/repositories/warehouse-inventory';
-import { CreateInventoryTransaction } from 'src/types/inventory-transaction';
-import { EntityManager } from 'typeorm';
+import {
+	CreateInventoryTransaction,
+	FilterableInventoryTransactionProps,
+} from 'src/types/inventory-transaction';
+import {
+	Between,
+	EntityManager,
+	FindManyOptions,
+	FindOptionsWhere,
+	ILike,
+	LessThanOrEqual,
+	MoreThanOrEqual,
+} from 'typeorm';
 import ItemUnitService from './item-unit';
 import WarehouseService from './warehouse';
 import WarehouseInventoryService from './warehouse-inventory';
@@ -317,21 +333,71 @@ class InventoryTransactionService extends TransactionBaseService {
 	}
 
 	async listAndCount(
-		filter: Partial<InventoryTransaction>,
-		options = { skip: 0, take: 10 }
-	) {
+		selector: Selector<FilterableInventoryTransactionProps> & {
+			q?: string;
+			start_at?: Date;
+			end_at?: Date;
+		} = {},
+		config: FindConfig<FilterableInventoryTransactionProps> = {
+			skip: 0,
+			take: 50,
+		}
+	): Promise<[InventoryTransaction[], number]> {
 		const inventoryTransactionRepo = this.activeManager_.withRepository(
 			this.inventoryTransactionRepository_
 		);
 
-		const [transactions, count] = await inventoryTransactionRepo.findAndCount({
-			where: filter,
-			skip: options.skip,
-			take: options.take,
-			order: { created_at: 'DESC' },
-		});
+		let q: string | undefined;
+		let startAt: Date | undefined;
+		let endAt: Date | undefined;
 
-		return [transactions, count];
+		if (selector.q) {
+			q = selector.q;
+			delete selector.q;
+		}
+
+		if (selector.start_at) {
+			startAt = selector.start_at;
+			delete selector.start_at;
+		}
+		if (selector.end_at) {
+			endAt = selector.end_at;
+			delete selector.end_at;
+		}
+
+		// Define the query with explicit typing
+		const query = {
+			...buildQuery(selector, config),
+			relations: ['variant', 'variant.product', 'warehouse'],
+		} as FindManyOptions<InventoryTransaction>;
+
+		// Handle dynamic search if q exists
+		if (q) {
+			const where =
+				query.where as FindOptionsWhere<FilterableInventoryTransactionProps>;
+
+			delete where.q;
+			delete where.warehouse;
+			delete where.quantity;
+			delete where.note;
+
+			query.where = [
+				{ ...where, note: ILike(`%${q}%`) },
+				{ ...where, variant: { sku: ILike(`%${q}%`) } },
+				{ ...where, variant: { product: { title: ILike(`%${q}%`) } } },
+				{ ...where, warehouse: { location: ILike(`%${q}%`) } },
+			];
+		}
+
+		if (startAt && endAt) {
+			query.where = [{ ...query.where, created_at: Between(startAt, endAt) }];
+		} else if (startAt) {
+			query.where = [{ ...query.where, created_at: MoreThanOrEqual(startAt) }];
+		} else if (endAt) {
+			query.where = [{ ...query.where, created_at: LessThanOrEqual(endAt) }];
+		}
+
+		return await inventoryTransactionRepo.findAndCount(query);
 	}
 
 	async retrieve(id: string) {
