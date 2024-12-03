@@ -158,6 +158,14 @@ export class SupplierOrder extends BaseEntity {
 	})
 	items: LineItem[];
 
+	@Index()
+	@Column()
+	handler_id: string;
+
+	@OneToOne(() => User)
+	@JoinColumn({ name: 'handler_id' })
+	handler: User;
+
 	// Total fields
 	shipping_total: number;
 	tax_total: number | null;

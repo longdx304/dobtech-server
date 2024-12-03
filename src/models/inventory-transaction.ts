@@ -6,9 +6,11 @@ import {
 	JoinColumn,
 	ManyToOne,
 	OneToMany,
+	OneToOne,
 	PrimaryColumn,
 } from 'typeorm';
 import { Warehouse } from './warehouse';
+import { User } from './user';
 
 export enum TransactionType {
 	INBOUND = 'INBOUND',
@@ -44,6 +46,10 @@ export class InventoryTransaction extends BaseEntity {
 
 	@Column('varchar', { nullable: true })
 	user_id: string;
+
+	@OneToOne(() => User)
+	@JoinColumn({ name: 'user_id' })
+	user: User;
 
 	@Column('jsonb', { default: {} })
 	metadata: Record<string, any>;
