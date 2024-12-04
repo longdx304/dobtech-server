@@ -57,7 +57,7 @@ class ProductInboundService extends TransactionBaseService {
 		const queryConfig = {
 			skip: config.skip || 0,
 			take: config.take || 20,
-			relations: config.relations,
+			relations: ['handler'],
 			order: config.order || { created_at: 'ASC' },
 		};
 
@@ -108,6 +108,7 @@ class ProductInboundService extends TransactionBaseService {
 			cart: true,
 			payments: true,
 			refunds: true,
+			handler: true,
 		};
 		delete query.relations;
 
@@ -220,6 +221,36 @@ class ProductInboundService extends TransactionBaseService {
 		relationSet.add('payments');
 
 		return Array.from(relationSet.values());
+	}
+
+	async assignToHandler(id: string, userId: string) {
+		const supplierOrderRepo = this.activeManager_.withRepository(
+			this.supplierOrderRepository_
+		);
+
+		const supplierOrder = await supplierOrderRepo.findOne({
+			where: { id },
+		});
+
+		if (!supplierOrder) {
+			throw new MedusaError(
+				MedusaError.Types.NOT_FOUND,
+				`Không tìm thấy đơn hàng với id ${id}`
+			);
+		}
+
+		if (supplierOrder?.handler_id) {
+			throw new MedusaError(
+				MedusaError.Types.NOT_ALLOWED,
+				`Đơn hàng này đã có người xử lý`
+			);
+		}
+
+		supplierOrder.handler_id = userId;
+
+		await supplierOrderRepo.save(supplierOrder);
+
+		return supplierOrder;
 	}
 }
 

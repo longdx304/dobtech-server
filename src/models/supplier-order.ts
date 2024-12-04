@@ -158,8 +158,7 @@ export class SupplierOrder extends BaseEntity {
 	})
 	items: LineItem[];
 
-	@Index()
-	@Column()
+	@Column({ nullable: true })
 	handler_id: string;
 
 	@OneToOne(() => User)
