@@ -21,7 +21,7 @@ import {
 	EntityManager,
 	FindManyOptions,
 	FindOptionsWhere,
-	ILike
+	ILike,
 } from 'typeorm';
 import ItemUnitService from './item-unit';
 import WarehouseService from './warehouse';
@@ -66,7 +66,7 @@ class InventoryTransactionService extends TransactionBaseService {
 		this.itemUnitService_ = itemUnitService;
 	}
 
-	async createInbound(data: Partial<CreateInventoryTransaction>) {
+	async create(data: Partial<CreateInventoryTransaction>) {
 		return await this.atomicPhase_(async (manager: EntityManager) => {
 			const inventoryTransactionRepo = manager.withRepository(
 				this.inventoryTransactionRepository_
@@ -74,9 +74,6 @@ class InventoryTransactionService extends TransactionBaseService {
 
 			const warehouseInventoryServiceTx =
 				this.warehouseInventoryService_.withTransaction(manager);
-
-			const productVariantServiceTx =
-				this.productVariantService_.withTransaction(manager);
 
 			const lineItemServiceTx = this.lineItemService_.withTransaction(manager);
 
@@ -92,14 +89,6 @@ class InventoryTransactionService extends TransactionBaseService {
 				data.warehouse_inventory_id
 			);
 
-			// the initial check for warehouse inventory with item unit
-			if (!warehouseInventory.item_unit) {
-				await warehouseInventoryServiceTx.update(warehouseInventory.id, {
-					quantity: inventoryQuantity,
-					unit_id: data.unit_id,
-				});
-			}
-
 			if (warehouseInventory.item_unit) {
 				if (warehouseInventory.item_unit.id !== data.unit_id) {
 					await warehouseInventoryServiceTx.createUnitWithVariant({
@@ -109,9 +98,7 @@ class InventoryTransactionService extends TransactionBaseService {
 						quantity: inventoryQuantity,
 					});
 				} else {
-					await warehouseInventoryServiceTx.updateUnitWithVariant({
-						unit_id: data.unit_id,
-						variant_id: data.variant_id,
+					await warehouseInventoryServiceTx.update(warehouseInventory.id, {
 						quantity: warehouseInventory.quantity + inventoryQuantity,
 					});
 				}
@@ -122,16 +109,6 @@ class InventoryTransactionService extends TransactionBaseService {
 
 			await lineItemServiceTx.update(data.line_item_id, {
 				warehouse_quantity: lineItem.warehouse_quantity + inventoryQuantity,
-			});
-
-			const retrievedProductVariant = await productVariantServiceTx.retrieve(
-				data.variant_id
-			);
-
-			// update the quantity on the product variant
-			await productVariantServiceTx.update(data.variant_id, {
-				inventory_quantity:
-					retrievedProductVariant.inventory_quantity + inventoryQuantity,
 			});
 
 			// create a new inventory transaction
@@ -140,6 +117,7 @@ class InventoryTransactionService extends TransactionBaseService {
 				type: 'INBOUND' as TransactionType,
 				quantity: inventoryQuantity,
 				note: `Đã nhập kho ${data.quantity} ${retrievedUnit.unit} (${inventoryQuantity} đôi) vào vị trí ${warehouseInventory.warehouse.location}`,
+				user_id: data.user_id,
 			});
 
 			await inventoryTransactionRepo.save(inventoryTransaction);
@@ -148,68 +126,7 @@ class InventoryTransactionService extends TransactionBaseService {
 		});
 	}
 
-	async removeInbound(data: Partial<CreateInventoryTransaction>) {
-		return await this.atomicPhase_(async (manager: EntityManager) => {
-			const inventoryTransactionRepo = manager.withRepository(
-				this.inventoryTransactionRepository_
-			);
-
-			const warehouseInventoryServiceTx =
-				this.warehouseInventoryService_.withTransaction(manager);
-
-			const productVariantServiceTx =
-				this.productVariantService_.withTransaction(manager);
-
-			const lineItemServiceTx = this.lineItemService_.withTransaction(manager);
-
-			const itemUnitServiceTx = this.itemUnitService_.withTransaction(manager);
-
-			// retrieve quantity of the item unit
-			// to calculate the inventory quantity
-			const retrievedUnit = await itemUnitServiceTx.retrieve(data.unit_id);
-			const inventoryQuantity = data.quantity * retrievedUnit.quantity;
-
-			// retrieve warehouse inventory
-			const warehouseInventory = await warehouseInventoryServiceTx.retrieve(
-				data.warehouse_inventory_id
-			);
-
-			await warehouseInventoryServiceTx.update(warehouseInventory.id, {
-				quantity: warehouseInventory.quantity - inventoryQuantity,
-			});
-
-			// update fulfillment_quantity on the line item
-			const lineItem = await lineItemServiceTx.retrieve(data.line_item_id);
-
-			await lineItemServiceTx.update(data.line_item_id, {
-				warehouse_quantity: lineItem.warehouse_quantity + inventoryQuantity,
-			});
-
-			const retrievedProductVariant = await productVariantServiceTx.retrieve(
-				data.variant_id
-			);
-
-			// update the quantity on the product variant
-			await productVariantServiceTx.update(data.variant_id, {
-				inventory_quantity:
-					retrievedProductVariant.inventory_quantity - inventoryQuantity,
-			});
-
-			// create a new inventory transaction
-			const inventoryTransaction = inventoryTransactionRepo.create({
-				...data,
-				quantity: inventoryQuantity,
-				type: 'INBOUND' as TransactionType,
-				note: `Đã xuất kho ${data.quantity} ${retrievedUnit.unit} (${inventoryQuantity} đôi) tại vị trí ${warehouseInventory.warehouse.location}`,
-			});
-
-			await inventoryTransactionRepo.save(inventoryTransaction);
-
-			return inventoryTransaction;
-		});
-	}
-
-	async createOutbound(data: Partial<CreateInventoryTransaction>) {
+	async remove(data: CreateInventoryTransaction) {
 		return await this.atomicPhase_(async (manager: EntityManager) => {
 			const inventoryTransactionRepo = manager.withRepository(
 				this.inventoryTransactionRepository_
@@ -232,29 +149,12 @@ class InventoryTransactionService extends TransactionBaseService {
 				data.warehouse_inventory_id
 			);
 
-			// the initial check for warehouse inventory with item unit
-			if (!warehouseInventory.item_unit) {
+			if (warehouseInventory.quantity - inventoryQuantity > 0) {
 				await warehouseInventoryServiceTx.update(warehouseInventory.id, {
-					quantity: inventoryQuantity,
-					unit_id: data.unit_id,
+					quantity: warehouseInventory.quantity - inventoryQuantity,
 				});
-			}
-
-			if (warehouseInventory.item_unit) {
-				if (warehouseInventory.item_unit.id !== data.unit_id) {
-					await warehouseInventoryServiceTx.createUnitWithVariant({
-						warehouse_id: warehouseInventory.warehouse_id,
-						unit_id: data.unit_id,
-						variant_id: data.variant_id,
-						quantity: inventoryQuantity,
-					});
-				} else {
-					await warehouseInventoryServiceTx.updateUnitWithVariant({
-						unit_id: data.unit_id,
-						variant_id: data.variant_id,
-						quantity: warehouseInventory.quantity + inventoryQuantity,
-					});
-				}
+			} else {
+				await warehouseInventoryServiceTx.delete(warehouseInventory.id);
 			}
 
 			// update fulfillment_quantity on the line item
@@ -271,57 +171,8 @@ class InventoryTransactionService extends TransactionBaseService {
 				warehouse_id: data.warehouse_id,
 				quantity: inventoryQuantity,
 				type: 'OUTBOUND' as TransactionType,
-				note: `Đã nhập kho ${data.quantity} ${retrievedUnit.unit} (${inventoryQuantity} đôi) vào vị trí ${warehouseInventory.warehouse.location}`,
-			});
-
-			await inventoryTransactionRepo.save(inventoryTransaction);
-
-			return inventoryTransaction;
-		});
-	}
-
-	async removeOutbound(data: CreateInventoryTransaction) {
-		return await this.atomicPhase_(async (manager: EntityManager) => {
-			const inventoryTransactionRepo = manager.withRepository(
-				this.inventoryTransactionRepository_
-			);
-
-			const warehouseInventoryServiceTx =
-				this.warehouseInventoryService_.withTransaction(manager);
-
-			const lineItemServiceTx = this.lineItemService_.withTransaction(manager);
-
-			const itemUnitServiceTx = this.itemUnitService_.withTransaction(manager);
-
-			// retrieve quantity of the item unit
-			// to calculate the inventory quantity
-			const retrievedUnit = await itemUnitServiceTx.retrieve(data.unit_id);
-			const inventoryQuantity = data.quantity * retrievedUnit.quantity;
-
-			// retrieve warehouse inventory
-			const warehouseInventory = await warehouseInventoryServiceTx.retrieve(
-				data.warehouse_inventory_id
-			);
-
-			await warehouseInventoryServiceTx.update(warehouseInventory.id, {
-				quantity: warehouseInventory.quantity - inventoryQuantity,
-			});
-
-			// update fulfillment_quantity on the line item
-			const lineItem = await lineItemServiceTx.retrieve(data.line_item_id);
-
-			await lineItemServiceTx.update(data.line_item_id, {
-				warehouse_quantity: lineItem.warehouse_quantity + inventoryQuantity,
-			});
-
-			// create a new inventory transaction
-			const inventoryTransaction = inventoryTransactionRepo.create({
-				order_id: data.order_id,
-				variant_id: data.variant_id,
-				warehouse_id: data.warehouse_id,
-				quantity: inventoryQuantity,
-				type: 'OUTBOUND' as TransactionType,
 				note: `Đã xuất kho ${data.quantity} ${retrievedUnit.unit} (${inventoryQuantity} đôi) tại vị trí ${warehouseInventory.warehouse.location}`,
+				user_id: data.user_id,
 			});
 
 			await inventoryTransactionRepo.save(inventoryTransaction);

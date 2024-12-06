@@ -18,7 +18,6 @@ export async function DELETE(req: MedusaRequest, res: MedusaResponse) {
 	const { id } = req.params;
 
 	const data = await req.body;
-	console.log('data:', data);
 
 	try {
 		// await supplierOrderDocService.delete(data);

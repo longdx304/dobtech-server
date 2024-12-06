@@ -2,6 +2,7 @@ import {
 	buildQuery,
 	FindConfig,
 	LineItemService,
+	ProductVariantService,
 	TransactionBaseService,
 } from '@medusajs/medusa';
 import LineItemRepository from '@medusajs/medusa/dist/repositories/line-item';
@@ -14,6 +15,13 @@ import {
 	SupplierOrder,
 } from '../models/supplier-order';
 import SupplierOrderService from './supplier-order';
+import WarehouseService from './warehouse';
+import InventoryTransactionService from './inventory-transaction';
+import {
+	AdminPostItemInventory,
+	CreateWarehouseWithVariant,
+} from 'src/types/warehouse';
+import WarehouseInventoryService from './warehouse-inventory';
 
 type InjectedDependencies = {
 	manager: EntityManager;
@@ -21,6 +29,10 @@ type InjectedDependencies = {
 	lineItemRepository: typeof LineItemRepository;
 	lineItemService: LineItemService;
 	supplierOrderService: SupplierOrderService;
+	productVariantService: ProductVariantService;
+	warehouseService: WarehouseService;
+	warehouseInventoryService: WarehouseInventoryService;
+	inventoryTransactionService: InventoryTransactionService;
 };
 
 class ProductInboundService extends TransactionBaseService {
@@ -28,12 +40,20 @@ class ProductInboundService extends TransactionBaseService {
 	protected lineItemRepository_: typeof LineItemRepository;
 	protected lineItemService_: LineItemService;
 	protected supplierOrderService_: SupplierOrderService;
+	protected productVariantService_: ProductVariantService;
+	protected warehouseService_: WarehouseService;
+	protected warehouseInventoryService_: WarehouseInventoryService;
+	protected inventoryTransactionService_: InventoryTransactionService;
 
 	constructor({
 		supplierOrderRepository,
 		lineItemRepository,
 		lineItemService,
 		supplierOrderService,
+		productVariantService,
+		warehouseService,
+		warehouseInventoryService,
+		inventoryTransactionService,
 	}: InjectedDependencies) {
 		super(arguments[0]);
 
@@ -41,6 +61,10 @@ class ProductInboundService extends TransactionBaseService {
 		this.lineItemRepository_ = lineItemRepository;
 		this.lineItemService_ = lineItemService;
 		this.supplierOrderService_ = supplierOrderService;
+		this.productVariantService_ = productVariantService;
+		this.warehouseService_ = warehouseService;
+		this.warehouseInventoryService_ = warehouseInventoryService;
+		this.inventoryTransactionService_ = inventoryTransactionService;
 	}
 
 	async listAndCount(
@@ -128,6 +152,7 @@ class ProductInboundService extends TransactionBaseService {
 		if (
 			![
 				FulfillSupplierOrderStt.DELIVERED,
+				FulfillSupplierOrderStt.PARTIALLY_INVENTORIED,
 				FulfillSupplierOrderStt.INVENTORIED,
 			].includes(raw.fulfillment_status)
 		) {
@@ -154,11 +179,113 @@ class ProductInboundService extends TransactionBaseService {
 		return await this.decorateTotals(supplierOrder, context);
 	}
 
-	async update() {}
+	async confirmInboundById(id: string) {
+		return this.atomicPhase_(async (manager) => {
+			const supplierOrderRepo = manager.withRepository(
+				this.supplierOrderRepository_
+			);
 
-	async delete() {}
+			const supplierOrder = await supplierOrderRepo.findOne({
+				where: { id },
+				relations: ['items', 'items.variant'],
+			});
 
-	async createInbound() {}
+			if (!supplierOrder) {
+				throw new MedusaError(
+					MedusaError.Types.NOT_FOUND,
+					`Không tìm thấy đơn hàng với id ${id}`
+				);
+			}
+
+			const lineItemServiceTx = this.lineItemService_.withTransaction(manager);
+
+			const productVariantServiceTx =
+				this.productVariantService_.withTransaction(manager);
+
+			let isFullyInventoried = true;
+
+			// Process each line item
+			for (const item of supplierOrder.items) {
+				// Default fulfilled_quantity to 0 if not set
+				const fulfilledQuantity = item.fulfilled_quantity ?? 0;
+				const warehouseQuantity = item.warehouse_quantity;
+
+				const additionalInventory = warehouseQuantity - fulfilledQuantity;
+
+				// Check if the variant exists
+				if (!item.variant) {
+					throw new MedusaError(
+						MedusaError.Types.NOT_FOUND,
+						`Không tìm thấy variant với id ${item.variant_id}`
+					);
+				}
+
+				// Update inventory quantity
+				await productVariantServiceTx.update(item.variant.id, {
+					inventory_quantity:
+						item.variant.inventory_quantity + additionalInventory,
+				});
+
+				await lineItemServiceTx.update(item.id, {
+					fulfilled_quantity: warehouseQuantity,
+				});
+
+				// Check if this item is partially inventoried
+
+				if (warehouseQuantity !== item.quantity) {
+					isFullyInventoried = false;
+				}
+			}
+
+			// Update supplier order status
+			supplierOrder.fulfillment_status = isFullyInventoried
+				? FulfillSupplierOrderStt.INVENTORIED
+				: FulfillSupplierOrderStt.PARTIALLY_INVENTORIED;
+			supplierOrder.inventoried_at = new Date();
+
+			await supplierOrderRepo.save(supplierOrder);
+
+			return supplierOrder;
+		});
+	}
+
+	async createWarehouseAndInventoryTransaction(
+		dataWarehouse: CreateWarehouseWithVariant,
+		dataItemInventory: AdminPostItemInventory,
+		user_id: string
+	) {
+		return this.atomicPhase_(async (manager: EntityManager) => {
+			const warehouseServiceTx =
+				this.warehouseService_.withTransaction(manager);
+
+			const warehouseInventoryServiceTx =
+				this.warehouseInventoryService_.withTransaction(manager);
+
+			const inventoryTransactionServiceTx =
+				this.inventoryTransactionService_.withTransaction(manager);
+
+			const warehouse = await warehouseServiceTx.createWarehouseWithVariant(
+				dataWarehouse
+			);
+
+			// retrieve warehouse
+			const warehouseInventory =
+				await warehouseInventoryServiceTx.retrieveByWarehouseAndVariant(
+					warehouse.id,
+					dataItemInventory.variant_id,
+					dataWarehouse.unit_id
+				);
+
+			const inventoryTransaction = await inventoryTransactionServiceTx.create({
+				...dataItemInventory,
+				warehouse_id: warehouse.id,
+				warehouse_inventory_id: warehouseInventory.id,
+				user_id,
+			});
+
+			return { warehouse, inventoryTransaction };
+		});
+	}
 
 	async decorateTotals(
 		supplierOrder: SupplierOrder,

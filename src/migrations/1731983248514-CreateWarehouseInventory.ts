@@ -24,7 +24,7 @@ export class CreateWarehouseInventory1731983248514
                     FOREIGN KEY ("variant_id") 
                     REFERENCES "product_variant"("id") ON DELETE CASCADE,
                 CONSTRAINT "unique_unit_variant" 
-                    UNIQUE ("unit_id", "variant_id")
+                    UNIQUE ("unit_id", "variant_id", "warehouse_id")
             )
         `);
 
