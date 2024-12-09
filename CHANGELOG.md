@@ -29,3 +29,18 @@
 
 ## 0.0.5 (2024-08-27 to 2024-10-15)
 * feat: Add private price for customer when admin update price in order detail
+
+## 0.0.6 (2024-10-22 to 2024-11-23)
+* feat: Admin create order for customers
+* feat: Create and update the private price list for order with customer
+* perf: Storefront and search page optimize product list and show loading
+* feat: Update the timeline action when payment partially
+
+## 0.0.7 (2024-11-14 to 2024-12-09)
+* feat: Update the cronjob for inventory
+* feat: History when changing the inventory book
+* feat: Warehouse officer needs to be notify and process procurement order when it arrived
+* feat: Warehouse officers need to be assigned and process sale order
+* feat: Update the company address in Google map
+* feat: Item unit management
+* feat: Inventory book management

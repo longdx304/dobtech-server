@@ -88,7 +88,6 @@ class InventoryTransactionService extends TransactionBaseService {
 			const warehouseInventory = await warehouseInventoryServiceTx.retrieve(
 				data.warehouse_inventory_id
 			);
-			console.log('warehouseInventory', warehouseInventory, inventoryQuantity);
 
 			if (warehouseInventory.item_unit) {
 				if (warehouseInventory.item_unit.id !== data.unit_id) {
@@ -111,7 +110,6 @@ class InventoryTransactionService extends TransactionBaseService {
 				data.type === 'INBOUND'
 					? lineItem.warehouse_quantity + inventoryQuantity
 					: lineItem.warehouse_quantity - inventoryQuantity;
-			console.log('updatedWarehouseQuantity', updatedWarehouseQuantity);
 
 			await lineItemServiceTx.update(data.line_item_id, {
 				warehouse_quantity: updatedWarehouseQuantity,
@@ -158,7 +156,6 @@ class InventoryTransactionService extends TransactionBaseService {
 					? lineItem.warehouse_quantity - inventoryQuantity
 					: lineItem.warehouse_quantity + inventoryQuantity;
 
-			console.log('updatedWarehouseQuantity', updatedWarehouseQuantity);
 			// retrieve warehouse inventory
 			const warehouseInventory = await warehouseInventoryServiceTx.retrieve(
 				data.warehouse_inventory_id
@@ -231,7 +228,7 @@ class InventoryTransactionService extends TransactionBaseService {
 		// Define the query with explicit typing
 		const query = {
 			...buildQuery(selector, config),
-			relations: ['variant', 'variant.product', 'warehouse'],
+			relations: ['variant', 'variant.product', 'warehouse', 'user'],
 			order: {
 				created_at: 'DESC',
 			},
