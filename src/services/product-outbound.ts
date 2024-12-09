@@ -72,7 +72,7 @@ class ProductOutboundService extends TransactionBaseService {
 			skip: config.skip || 0,
 			take: config.take || 20,
 			relations: ['handler'],
-			order: config.order || { created_at: 'ASC' },
+			order: config.order || { created_at: 'DESC' },
 			where: {
 				fulfillment_status: Array.isArray(status) ? In(status) : fulfillStt,
 			},

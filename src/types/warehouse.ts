@@ -16,4 +16,25 @@ export type AdminPostItemInventory = {
 	type: 'INBOUND' | 'OUTBOUND';
 };
 
+type AdminPostWarehouseRes = {
+	warehouse_id?: string;
+	location: string;
+	variant_id: string;
+	capacity?: number;
+	unit_id: string;
+};
+
+export type AdminPostItemData = {
+	variant_id: string;
+	quantity: number;
+	unit_id: string;
+	line_item_id: string;
+	order_id: string;
+	type: string;
+};
+
+export interface AdminPostWarehouseVariantReq {
+	warehouse: AdminPostWarehouseRes;
+	itemInventory: AdminPostItemData;
+}
 export type FilterableWarehouseProps = PartialPick<Warehouse, 'location'>;

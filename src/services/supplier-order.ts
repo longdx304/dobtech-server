@@ -222,7 +222,7 @@ class SupplierOrderService extends TransactionBaseService {
 		const { q, ...supplierOrderSelectorRest } = selector;
 
 		config.order = config.order || {
-			created_at: 'ASC',
+			created_at: 'DESC',
 		};
 
 		const query = buildQuery(supplierOrderSelectorRest, config);

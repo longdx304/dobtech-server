@@ -82,7 +82,7 @@ class ProductInboundService extends TransactionBaseService {
 			skip: config.skip || 0,
 			take: config.take || 20,
 			relations: ['handler'],
-			order: config.order || { created_at: 'ASC' },
+			order: config.order || { created_at: 'DESC' },
 		};
 
 		const whereClause = Array.isArray(status)
@@ -265,7 +265,7 @@ class ProductInboundService extends TransactionBaseService {
 				this.inventoryTransactionService_.withTransaction(manager);
 
 			const warehouse = await warehouseServiceTx.createWarehouseWithVariant(
-				dataWarehouse
+				dataWarehouse,
 			);
 
 			// retrieve warehouse
