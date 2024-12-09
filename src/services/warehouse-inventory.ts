@@ -86,6 +86,23 @@ class WarehouseInventoryService extends TransactionBaseService {
 		});
 	}
 
+	async retrieveByWarehouseAndVariant(
+		warehouseId: string,
+		variantId: string,
+		unitId: string
+	): Promise<WarehouseInventory | undefined> {
+		return await this.atomicPhase_(async (manager: EntityManager) => {
+			const warehouseInventoryRepo = manager.withRepository(
+				this.warehouseInventoryRepository_
+			);
+			const warehouseInventory = await warehouseInventoryRepo.findOne({
+				where: { warehouse_id: warehouseId, variant_id: variantId, unit_id: unitId },
+				relations: ['warehouse', 'item_unit'],
+			});
+			return warehouseInventory;
+		});
+	}
+
 	async findOneById(
 		params: Partial<WarehouseInventory>
 	): Promise<WarehouseInventory | undefined> {
@@ -122,7 +139,6 @@ class WarehouseInventoryService extends TransactionBaseService {
 		});
 	}
 	async updateUnitWithVariant(data: {
-		unit_id: string;
 		variant_id: string;
 		quantity: number;
 	}): Promise<WarehouseInventory> {
@@ -131,7 +147,7 @@ class WarehouseInventoryService extends TransactionBaseService {
 				this.warehouseInventoryRepository_
 			);
 			const warehouseInventory = await warehouseInventoryRepo.findOne({
-				where: { variant_id: data.variant_id, unit_id: data.unit_id },
+				where: { variant_id: data.variant_id },
 			});
 
 			if (warehouseInventory) {

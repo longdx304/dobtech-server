@@ -44,7 +44,7 @@ class ItemUnitService extends TransactionBaseService {
         });
 
         if (existingItemUnit) {
-          throw new Error('An item unit with this quantity already exists');
+          throw new Error('Đơn vị hàng đã tồn tại');
         }
 
         const itemUnit = itemUnitRepo.create(data);
@@ -61,7 +61,7 @@ class ItemUnitService extends TransactionBaseService {
         const itemUnit = await itemUnitRepo.findOne({ where: { id } });
 
         if (!itemUnit) {
-          throw new Error('ItemUnit not found');
+          throw new Error('Không tìm thấy đơn vị hàng này');
         }
 
         Object.assign(itemUnit, data);

@@ -17,18 +17,17 @@ export class CreateItemUnitQuantity1731566170864 implements MigrationInterface {
 		);
 
 		await queryRunner.query(
-			`INSERT INTO "item_unit" ("id", "unit", "quantity") VALUES ('${generateEntityId(
-				'',
-				'iu'
-			)}', 'đôi', 1)`
+			`INSERT INTO "item_unit" ("id", "unit", "quantity") VALUES ('default', 'đôi', 1)`
 		);
 	}
 
 	public async down(queryRunner: QueryRunner): Promise<void> {
-		await queryRunner.query(`DROP TABLE "item_unit"`);
-
+		// Drop the primary key constraint
 		await queryRunner.query(
-			`ALTER TABLE "item_unit" DROP CONSTRAINT "PK_item_unit_id" PRIMARY KEY ("id")`
+			`ALTER TABLE "item_unit" DROP CONSTRAINT "PK_item_unit_id"`
 		);
+
+		// Then drop the table
+		await queryRunner.query(`DROP TABLE "item_unit"`);
 	}
 }

@@ -118,7 +118,7 @@ class WarehouseService extends TransactionBaseService {
 					if (!warehouse) {
 						throw new MedusaError(
 							MedusaError.Types.INVALID_DATA,
-							`Warehouse with ID ${data.warehouse_id} not found`
+							`Không tìm thấy kho với id ${data.warehouse_id}`
 						);
 					}
 				} else {
@@ -145,6 +145,7 @@ class WarehouseService extends TransactionBaseService {
 						where: {
 							warehouse_id: warehouse.id,
 							variant_id: data.variant_id,
+							unit_id: data.unit_id,
 						},
 					}
 				);
@@ -161,6 +162,7 @@ class WarehouseService extends TransactionBaseService {
 				await warehouseInventoryServiceTx.create({
 					warehouse_id: warehouse.id,
 					variant_id: data.variant_id,
+					unit_id: data.unit_id,
 				});
 				return warehouse;
 			}
@@ -174,6 +176,7 @@ class WarehouseService extends TransactionBaseService {
 
 		const warehouse = await warehouseRepo.findOne({
 			where: { id },
+			relations: ['inventories'],
 		});
 
 		if (!warehouse) {

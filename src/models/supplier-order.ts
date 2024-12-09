@@ -38,6 +38,7 @@ export enum OrderStatus {
 export enum FulfillSupplierOrderStt {
 	NOT_FULFILLED = 'not_fulfilled',
 	DELIVERED = 'delivered',
+	PARTIALLY_INVENTORIED = 'partially_inventoried',
 	INVENTORIED = 'inventoried',
 	REJECTED = 'rejected',
 }
@@ -157,6 +158,13 @@ export class SupplierOrder extends BaseEntity {
 		cascade: ['insert'],
 	})
 	items: LineItem[];
+
+	@Column({ nullable: true })
+	handler_id: string;
+
+	@OneToOne(() => User)
+	@JoinColumn({ name: 'handler_id' })
+	handler: User;
 
 	// Total fields
 	shipping_total: number;

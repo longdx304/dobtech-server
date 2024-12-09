@@ -72,11 +72,9 @@ class ProductOutboundService extends TransactionBaseService {
 			skip: config.skip || 0,
 			take: config.take || 20,
 			relations: ['handler'],
-			order: config.order || { created_at: 'ASC' },
+			order: config.order || { created_at: 'DESC' },
 			where: {
 				fulfillment_status: Array.isArray(status) ? In(status) : fulfillStt,
-				// Only include orders with a non-null handler_id
-				handler_id: Not(IsNull()),
 			},
 		};
 
@@ -478,6 +476,30 @@ class ProductOutboundService extends TransactionBaseService {
 		relationSet.add('handler');
 
 		return Array.from(relationSet.values());
+	}
+
+	async assignToHandler(id: string, userId: string) {
+		const orderRepo = this.activeManager_.withRepository(this.orderRepository_);
+
+		const order = await orderRepo.findOne({ where: { id } });
+
+		if (!order) {
+			throw new MedusaError(
+				MedusaError.Types.NOT_FOUND,
+				`Không tìm thấy đơn hàng với id ${id}`
+			);
+		}
+
+		if (order?.handler_id) {
+			throw new MedusaError(
+				MedusaError.Types.NOT_ALLOWED,
+				`Đơn hàng này đã có người xử lý`
+			);
+		}
+
+		order.handler_id = userId;
+
+		await orderRepo.save(order);
 	}
 }
 

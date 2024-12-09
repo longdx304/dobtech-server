@@ -20,7 +20,10 @@ export class CreateInventoryTransaction1731983342304
                 PRIMARY KEY ("id"),
                 CONSTRAINT "fk_inventory_transaction_warehouse" 
                     FOREIGN KEY ("warehouse_id") 
-                    REFERENCES "warehouse"("id") ON DELETE CASCADE
+                    REFERENCES "warehouse"("id") ON DELETE CASCADE,
+                CONSTRAINT "fk_inventory_transaction_user"
+                    FOREIGN KEY ("user_id")
+                    REFERENCES "user"("id")
             )`
 		);
 
