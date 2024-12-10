@@ -24,7 +24,7 @@ export const config: MiddlewaresConfig = {
 				}),
 			],
 			bodyParser: {
-				sizeLimit: '5mb',
+				sizeLimit: '100mb',
 			},
 		},
 	],
