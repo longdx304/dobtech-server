@@ -13,6 +13,8 @@ import {
 	AdminPostProductsProductVariantsVariantReq,
 	AdminPostProductsReq,
 } from '../extend-validator/product';
+import { AdminPostPriceListsPriceListPriceListReq, AdminPostPriceListsPriceListReq } from '../extend-validator/price-list';
+import { AdminPostOrderEditsEditLineItemsLineItemReq } from '../extend-validator/order-edit';
 
 registerOverriddenValidators(AdminCreateUserRequest);
 registerOverriddenValidators(AdminUpdateUserRequest);
@@ -24,3 +26,9 @@ registerExtendedValidator(StorePostCartReq);
 registerExtendedValidator(AdminPostProductsReq);
 registerExtendedValidator(AdminPostProductsProductVariantsReq);
 registerExtendedValidator(AdminPostProductsProductVariantsVariantReq);
+
+
+registerExtendedValidator(AdminPostPriceListsPriceListReq);
+registerExtendedValidator(AdminPostPriceListsPriceListPriceListReq);
+
+registerExtendedValidator(AdminPostOrderEditsEditLineItemsLineItemReq);

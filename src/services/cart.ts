@@ -1,22 +1,17 @@
-import { MedusaError } from '@medusajs/utils';
 import { Cart, CartService, LineItem } from '@medusajs/medusa';
 import { LineItemValidateData } from '@medusajs/medusa/dist/types/cart';
-import { EntityManager, In } from 'typeorm';
+import { MedusaError } from '@medusajs/utils';
 import { isEqual } from 'lodash';
+import { EntityManager, In } from 'typeorm';
 
 type InjectedDependencies = {
 	manager: EntityManager;
-	// cartService: CartService;
 };
 
 class MyCartService extends CartService {
-	// protected cartService_: CartService;
-
 	constructor({}: InjectedDependencies) {
 		// eslint-disable-next-line prefer-rest-params
 		super(arguments[0]);
-
-		// this.cartService_ = cartService;
 	}
 
 	/**
@@ -118,23 +113,6 @@ class MyCartService extends CartService {
 					item.quantity = currentItem
 						? (currentItem.quantity += item.quantity)
 						: item.quantity;
-
-					// if (item.variant_id) {
-					// 	const isSufficient =
-					// 		await productVariantInventoryServiceTx.confirmInventory(
-					// 			item.variant_id,
-					// 			item.quantity,
-					// 			{ salesChannelId: cart.sales_channel_id }
-					// 		);
-
-					// 	if (!isSufficient) {
-					// 		throw new MedusaError(
-					// 			MedusaError.Types.NOT_ALLOWED,
-					// 			`Variant with id: ${item.variant_id} does not have the required inventory`,
-					// 			MedusaError.Codes.INSUFFICIENT_INVENTORY
-					// 		);
-					// 	}
-					// }
 
 					if (currentItem) {
 						lineItemsToUpdate[currentItem.id] = {

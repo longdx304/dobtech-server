@@ -1,8 +1,12 @@
 import {
 	BaseEntity,
 	Cart,
+	Currency,
 	DbAwareColumn,
 	generateEntityId,
+	Payment,
+	Refund,
+	Region,
 	resolveDbGenerationStrategy,
 	resolveDbType,
 } from '@medusajs/medusa';
@@ -13,12 +17,15 @@ import {
 	Generated,
 	Index,
 	JoinColumn,
+	ManyToOne,
 	OneToMany,
 	OneToOne,
 } from 'typeorm';
+import { LineItem } from './line-item';
+import { OrderEdit } from './order-edit';
 import { Supplier } from './supplier';
-import { User } from './user';
 import { SupplierOrderDocument } from './supplier-order-document';
+import { User } from './user';
 
 export enum OrderStatus {
 	PENDING = 'pending',
@@ -28,16 +35,12 @@ export enum OrderStatus {
 	REQUIRES_ACTION = 'requires_action',
 }
 
-export enum FulfillmentStatus {
+export enum FulfillSupplierOrderStt {
 	NOT_FULFILLED = 'not_fulfilled',
-	PARTIALLY_FULFILLED = 'partially_fulfilled',
-	FULFILLED = 'fulfilled',
-	PARTIALLY_SHIPPED = 'partially_shipped',
-	SHIPPED = 'shipped',
-	PARTIALLY_RETURNED = 'partially_returned',
-	RETURNED = 'returned',
-	CANCELED = 'canceled',
-	REQUIRES_ACTION = 'requires_action',
+	DELIVERED = 'delivered',
+	PARTIALLY_INVENTORIED = 'partially_inventoried',
+	INVENTORIED = 'inventoried',
+	REJECTED = 'rejected',
 }
 
 export enum PaymentStatus {
@@ -60,7 +63,6 @@ export class SupplierOrder extends BaseEntity {
 	supplier_id: string;
 
 	@OneToOne(() => Supplier)
-	// @OneToOne(() => Supplier, { cascade: ['insert', 'remove'] })
 	@JoinColumn({ name: 'supplier_id' })
 	supplier: Supplier;
 
@@ -85,19 +87,52 @@ export class SupplierOrder extends BaseEntity {
 
 	@DbAwareColumn({
 		type: 'enum',
-		enum: FulfillmentStatus,
+		enum: FulfillSupplierOrderStt,
 		default: 'not_fulfilled',
 	})
-	fulfillment_status: FulfillmentStatus;
+	fulfillment_status: FulfillSupplierOrderStt;
 
 	@DbAwareColumn({ type: 'enum', enum: PaymentStatus, default: 'not_paid' })
 	payment_status: PaymentStatus;
+
+	@OneToMany(() => Payment, (payment) => payment.supplier_order, {
+		cascade: ['insert'],
+	})
+	payments: Payment[];
 
 	@Column({ type: resolveDbType('timestamptz') })
 	estimated_production_time: Date;
 
 	@Column({ type: resolveDbType('timestamptz') })
 	settlement_time: Date;
+
+	@Column({ nullable: true, type: resolveDbType('timestamptz') })
+	canceled_at: Date;
+
+	@Column({ nullable: true, type: resolveDbType('timestamptz') })
+	delivered_at: Date;
+
+	@Column({ nullable: true, type: resolveDbType('timestamptz') })
+	inventoried_at: Date;
+
+	@Column({ nullable: true, type: resolveDbType('timestamptz') })
+	rejected_at: Date;
+
+	@Index()
+	@Column()
+	region_id: string;
+
+	@ManyToOne(() => Region)
+	@JoinColumn({ name: 'region_id' })
+	region: Region;
+
+	@Index()
+	@Column()
+	currency_code: string;
+
+	@ManyToOne(() => Currency)
+	@JoinColumn({ name: 'currency_code', referencedColumnName: 'code' })
+	currency: Currency;
 
 	@Column({ nullable: true, type: resolveDbType('timestamptz') })
 	tax_rate: number;
@@ -112,6 +147,33 @@ export class SupplierOrder extends BaseEntity {
 		cascade: ['insert', 'remove'],
 	})
 	documents: SupplierOrderDocument[];
+
+	@OneToMany(() => OrderEdit, (oe) => oe.supplier_order)
+	edits: OrderEdit[];
+
+	@OneToMany(() => Refund, (ref) => ref.supplier_order, { cascade: ['insert'] })
+	refunds: Refund[];
+
+	@OneToMany(() => LineItem, (lineItem) => lineItem.supplier_order, {
+		cascade: ['insert'],
+	})
+	items: LineItem[];
+
+	@Column({ nullable: true })
+	handler_id: string;
+
+	@OneToOne(() => User)
+	@JoinColumn({ name: 'handler_id' })
+	handler: User;
+
+	// Total fields
+	shipping_total: number;
+	tax_total: number | null;
+	total: number;
+	subtotal: number;
+	refundable_amount: number;
+	refunded_total: number;
+	paid_total: number;
 
 	@BeforeInsert()
 	private async beforeInsert(): Promise<void> {

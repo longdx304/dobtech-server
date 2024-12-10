@@ -2,13 +2,15 @@ import {
 	OrderService,
 	Payment,
 	TransactionBaseService,
-} from "@medusajs/medusa";
-import PaymentRepository from "@medusajs/medusa/dist/repositories/payment";
-import { EntityManager } from "typeorm";
+} from '@medusajs/medusa';
+import PaymentRepository from '@medusajs/medusa/dist/repositories/payment';
+import { EventBusService } from '@medusajs/medusa';
+import { EntityManager } from 'typeorm';
 
 type InjectedDependencies = {
 	manager: EntityManager;
 	paymentRepository: typeof PaymentRepository;
+	orderService: OrderService;
 };
 
 type UpdatePaymentInput = {
@@ -16,14 +18,44 @@ type UpdatePaymentInput = {
 };
 
 class MyPaymentService extends TransactionBaseService {
+	protected readonly eventBusService_: EventBusService;
 	protected paymentRepository_: typeof PaymentRepository;
 	private orderService: OrderService;
 
-	constructor(container) {
+	constructor(container: InjectedDependencies) {
 		super(container);
 
 		this.paymentRepository_ = container.paymentRepository;
 		this.orderService = container.orderService;
+	}
+
+	/**
+	 * Updates a payment in order to link it to an order or a swap.
+	 * @param paymentId - the id of the payment
+	 * @param data - order_id or swap_id to link the payment
+	 * @return the payment updated.
+	 */
+	async updateNewPayment(
+		paymentId: string,
+		data: { supplier_order_id?: string }
+	): Promise<Payment> {
+		return await this.atomicPhase_(
+			async (transactionManager: EntityManager) => {
+				const paymentRepository = transactionManager.withRepository(
+					this.paymentRepository_
+				);
+
+				const payment = await this.retrieve(paymentId);
+
+				if (data?.supplier_order_id) {
+					payment.supplier_order_id = data.supplier_order_id;
+				}
+
+				const updatedPayment = await paymentRepository.save(payment);
+
+				return updatedPayment;
+			}
+		);
 	}
 
 	// Retrieve a payment by id
@@ -39,10 +71,7 @@ class MyPaymentService extends TransactionBaseService {
 		return payment;
 	}
 
-	async capturePayment(
-		id: string,
-		data: UpdatePaymentInput
-	): Promise<Payment> {
+	async capturePayment(id: string, data: UpdatePaymentInput): Promise<Payment> {
 		return await this.atomicPhase_(
 			async (transactionManager: EntityManager) => {
 				const paymentRepository = transactionManager.withRepository(
@@ -63,10 +92,12 @@ class MyPaymentService extends TransactionBaseService {
 				});
 				// If the paid_total is equal to the payment amount, capture the payment
 				if (paid_total === payment.amount) {
-					const order = await this.orderService.capturePayment(
-						payment.order_id
-					);
-					payment = order.payments.find((p) => p.id === id);
+					if (payment.order_id) {
+						const order = await this.orderService.capturePayment(
+							payment.order_id
+						);
+						payment = order.payments.find((p) => p.id === id);
+					}
 				}
 				// Update the payment with the new paid_total
 				const updatePayment = {
@@ -92,7 +123,8 @@ class MyPaymentService extends TransactionBaseService {
 					id,
 					amount,
 				});
-			});
+			}
+		);
 	}
 }
 

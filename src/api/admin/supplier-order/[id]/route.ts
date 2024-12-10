@@ -1,5 +1,14 @@
-import { MedusaRequest, MedusaResponse } from '@medusajs/medusa';
+import {
+	cleanResponseData,
+	MedusaRequest,
+	MedusaResponse,
+} from '@medusajs/medusa';
+import { SupplierOrder } from 'src/models/supplier-order';
 import SupplierOrderService from 'src/services/supplier-order';
+import {
+	DeleteLineItemRequest,
+	UpdateSupplierOrderInput,
+} from 'src/types/supplier-orders';
 
 export async function GET(req: MedusaRequest, res: MedusaResponse) {
 	const supplierOrderService: SupplierOrderService = req.scope.resolve(
@@ -8,7 +17,30 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
 	const { id } = req.params;
 
 	try {
-		const supplierOrder = await supplierOrderService.retrieve(id);
+		let supplierOrder: Partial<SupplierOrder> =
+			await supplierOrderService.retrieveWithTotals(id, req.retrieveConfig, {
+				includes: req.includes,
+			});
+
+		supplierOrder = cleanResponseData(supplierOrder, req.allowedProperties);
+
+		res.json({ supplierOrder: cleanResponseData(supplierOrder, []) });
+	} catch (error) {
+		return res.status(404).json({ error: error.message });
+	}
+}
+
+export async function PUT(req: MedusaRequest, res: MedusaResponse) {
+	const supplierOrderService: SupplierOrderService = req.scope.resolve(
+		'supplierOrderService'
+	);
+	const { id } = req.params;
+
+	try {
+		const supplierOrder = await supplierOrderService.update(
+			id,
+			req.body as UpdateSupplierOrderInput
+		);
 
 		if (!supplierOrder) {
 			return res
@@ -22,28 +54,29 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
 	}
 }
 
-// export async function PUT(req: MedusaRequest, res: MedusaResponse) {
-//   const supplierService: SupplierService = req.scope.resolve('supplierService');
-//   const { id } = req.params;
+export async function DELETE(
+	req: MedusaRequest<DeleteLineItemRequest>,
+	res: MedusaResponse
+) {
+	const supplierOrderService: SupplierOrderService = req.scope.resolve(
+		'supplierOrderService'
+	);
+	const { id } = req.params;
+	const { lineItemId } = req.body;
 
-//   try {
-//     const supplier = await supplierService.update(id, req.body);
-//     return res.status(200).json({ supplier });
-//   } catch (error) {
-//     return res.status(404).json({ error: error.message });
-//   }
-// }
+	if (!lineItemId) {
+		return res
+			.status(400)
+			.json({ error: 'lineItemId is required in the request body' });
+	}
 
-// export async function DELETE(req: MedusaRequest, res: MedusaResponse) {
-//   const supplierService: SupplierService = req.scope.resolve('supplierService');
-//   const { id } = req.params;
-
-//   try {
-//     await supplierService.delete(id);
-//     return res.status(200).json({ success: true });
-//   } catch (error) {
-//     return res.status(404).json({ error: error.message });
-//   }
-// }
-
-export const AUTHENTICATE = false;
+	try {
+		const updatedSupplierOrder = await supplierOrderService.deleteLineItem(
+			id,
+			lineItemId
+		);
+		return res.status(200).json({ supplierOrder: updatedSupplierOrder });
+	} catch (error) {
+		return res.status(500).json({ error: 'An unexpected error occurred' });
+	}
+}

@@ -1,6 +1,6 @@
-import { MedusaRequest, MedusaResponse } from "@medusajs/medusa";
-import MyPaymentService from "src/services/my-payment";
-import { EntityManager } from "typeorm";
+import { MedusaRequest, MedusaResponse } from '@medusajs/medusa';
+import MyPaymentService from 'src/services/my-payment';
+import { EntityManager } from 'typeorm';
 
 export async function POST(
 	req: MedusaRequest,
@@ -8,10 +8,10 @@ export async function POST(
 ): Promise<void> {
 	try {
 		const myPaymentService: MyPaymentService =
-			req.scope.resolve("myPaymentService");
+			req.scope.resolve('myPaymentService');
 		const { id } = req.params;
 
-		const manager: EntityManager = req.scope.resolve("manager");
+		const manager: EntityManager = req.scope.resolve('manager');
 
 		// Capture payment
 		const data = await manager.transaction(async (transactionManager) => {
@@ -21,11 +21,11 @@ export async function POST(
 		});
 
 		res.json({
-			message: "Capture payment successfully",
+			message: 'Capture payment successfully',
 			data,
 		});
 	} catch (error) {
-		console.log(error);
+		console.log('error', error);
 		res.status(500).json({ error: error.message });
 	}
 }

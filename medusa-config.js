@@ -57,20 +57,19 @@ const plugins = [
 ];
 
 const modules = {
-  eventBus: {
-    resolve: '@medusajs/event-bus-redis',
-    options: {
-      redisUrl: REDIS_URL,
-      ttl: 30,
-    },
-  },
-  cacheService: {
-    resolve: '@medusajs/cache-redis',
-    options: {
-      redisUrl: REDIS_URL,
-      ttl: 30,
-    },
-  },
+	eventBus: {
+		resolve: '@medusajs/event-bus-redis',
+		options: {
+			redisUrl: REDIS_URL,
+		},
+	},
+	cacheService: {
+		resolve: '@medusajs/cache-redis',
+		options: {
+			redisUrl: REDIS_URL,
+			ttl: 0,
+		},
+	},
 };
 
 /** @type {import('@medusajs/medusa').ConfigModule["projectConfig"]} */
@@ -82,6 +81,14 @@ const projectConfig = {
 	// database_url: TEST_DATABASE_URL,
 	admin_cors: ADMIN_CORS,
 	redis_url: REDIS_URL,
+	session_options: {
+		secret: process.env.COOKIE_SECRET,
+		name: 'connect.sid',
+		resave: true,
+		rolling: true,
+		saveUninitialized: true,
+		ttl: 60 * 60 * 24 * 7 * 1000,
+	},
 };
 
 const featureFlags = {
