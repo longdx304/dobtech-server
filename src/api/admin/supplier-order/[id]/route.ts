@@ -30,7 +30,7 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
 	}
 }
 
-export async function PUT(req: MedusaRequest, res: MedusaResponse) {
+export async function POST(req: MedusaRequest, res: MedusaResponse) {
 	const supplierOrderService: SupplierOrderService = req.scope.resolve(
 		'supplierOrderService'
 	);

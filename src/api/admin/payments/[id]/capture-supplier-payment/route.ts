@@ -1,9 +1,9 @@
-import { MedusaRequest, MedusaResponse } from '@medusajs/medusa';
+import { AuthenticatedMedusaRequest, MedusaRequest, MedusaResponse } from '@medusajs/medusa';
 import SupplierPaymentService from 'src/services/supplier-payment';
 import { EntityManager } from 'typeorm';
 
 export async function POST(
-	req: MedusaRequest,
+	req: AuthenticatedMedusaRequest,
 	res: MedusaResponse
 ): Promise<void> {
 	try {

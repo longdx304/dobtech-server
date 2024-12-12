@@ -1,23 +1,23 @@
-import { MedusaError, promiseAll } from '@medusajs/utils';
 import {
+	AuthenticatedMedusaRequest,
 	CartService,
 	cleanResponseData,
 	DraftOrderService,
-	MedusaRequest,
 	MedusaResponse,
 	Order,
 	OrderService,
 	PaymentProviderService,
-	ProductVariantInventoryService,
+	ProductVariantInventoryService
 } from '@medusajs/medusa';
 import {
 	defaultAdminOrdersFields,
 	defaultAdminOrdersRelations,
 } from '@medusajs/medusa/dist/types/orders';
+import { MedusaError, promiseAll } from '@medusajs/utils';
 import { EntityManager } from 'typeorm';
 
 export async function POST(
-	req: MedusaRequest,
+	req: AuthenticatedMedusaRequest,
 	res: MedusaResponse
 ): Promise<void> {
 	const { id } = req.params;
