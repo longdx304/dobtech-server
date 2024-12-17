@@ -8,7 +8,7 @@ import {
 	DeleteObjectsCommand,
 	GetObjectCommand,
 	PutObjectCommand,
-	S3Client
+	S3Client,
 } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -84,9 +84,8 @@ class S3Service extends AbstractFileService implements IFileService {
 		const parsedFilename = parse(file.originalname);
 		this.prefix_ = file.destination ? `${file.destination}/` : '';
 
-		const fileKey = `${this.prefix_}${parsedFilename.name}-${Date.now()}${
-			parsedFilename.ext
-		}`;
+		const currentTime = this.formatDateTime();
+		const fileKey = `${this.prefix_}${parsedFilename.name}-${currentTime}${parsedFilename.ext}`;
 
 		const command = new PutObjectCommand({
 			ACL:
@@ -116,8 +115,6 @@ class S3Service extends AbstractFileService implements IFileService {
 	}
 
 	async delete(file: DeleteFileType): Promise<void> {
-		console.log('file:', file);
-		console.log('this.bucket_:', this.bucket_);
 		const fileKeys = file.fileKey.split(',');
 
 		const objectsDelete = fileKeys.map((key) => {
@@ -125,11 +122,6 @@ class S3Service extends AbstractFileService implements IFileService {
 				Key: key,
 			};
 		});
-		console.log('fileKeys:', fileKeys);
-		// const command = new DeleteObjectCommand({
-		// 	Bucket: this.bucket_,
-		// 	Key: `${file.file_key}`,
-		// });
 		const command = new DeleteObjectsCommand({
 			Bucket: this.bucket_,
 			Delete: {
@@ -195,6 +187,19 @@ class S3Service extends AbstractFileService implements IFileService {
 		return await getSignedUrl(this.client_, command, {
 			expiresIn: this.downloadFileDuration_,
 		});
+	}
+
+	formatDateTime() {
+		const now = new Date(); // Tạo đối tượng Date hiện tại
+
+		const hours = String(now.getHours()).padStart(2, '0'); // Giờ (HH)
+		const minutes = String(now.getMinutes()).padStart(2, '0'); // Phút (mm)
+		const seconds = String(now.getSeconds()).padStart(2, '0'); // Giây (ss)
+
+		const day = String(now.getDate()).padStart(2, '0'); // Ngày (dd)
+		const month = String(now.getMonth() + 1).padStart(2, '0'); // Tháng (mm), chú ý getMonth() từ 0-11
+		const year = now.getFullYear(); // Năm (YYYY)
+		return `${hours}${minutes}${seconds}_${day}${month}${year}`;
 	}
 }
 
