@@ -18,7 +18,7 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
 	}
 }
 
-export async function PUT(req: MedusaRequest, res: MedusaResponse) {
+export async function POST(req: MedusaRequest, res: MedusaResponse) {
 	const supplierService: SupplierService = req.scope.resolve('supplierService');
 	const { id } = req.params;
 

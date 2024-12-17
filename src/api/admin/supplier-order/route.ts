@@ -1,27 +1,41 @@
-import { type MedusaRequest, type MedusaResponse } from '@medusajs/medusa';
+import {
+	cleanResponseData,
+	type MedusaRequest,
+	type MedusaResponse,
+} from '@medusajs/medusa';
+import { Type } from 'class-transformer';
+import { IsNumber, IsOptional, IsString } from 'class-validator';
 import SupplierOrderService from 'src/services/supplier-order';
-import { CreateSupplierOrderInput } from 'src/types/supplier-orders';
+import {
+	AdminListSupplierOrdersSelector,
+	CreateSupplierOrderInput,
+} from '../../../types/supplier-orders';
+import { transformQuery } from '../../../utils/transform-query';
 
 export async function GET(req: MedusaRequest, res: MedusaResponse) {
 	const supplierOrderService: SupplierOrderService = req.scope.resolve(
 		'supplierOrderService'
 	);
 
-	const searchParams = req.query;
-
-	const { offset, limit, q } = searchParams;
-
-	const [supplierOrder, count] = await supplierOrderService.listAndCount(
+	const { filterableFields, listConfig } = await transformQuery(
+		AdminGetSupplierOrdersParams,
+		req.query,
 		{
-			q: (q as string) ?? '',
-		},
-		{
-			skip: (offset ?? 0) as number,
-			take: (limit ?? 20) as number,
+			isList: true,
 		}
 	);
 
-	return res.status(200).json({ supplierOrder, count, offset, limit });
+	const [supplierOrder, count] = await supplierOrderService.listAndCount(
+		filterableFields as any,
+		listConfig
+	);
+
+	return res.status(200).json({
+		supplierOrders: cleanResponseData(supplierOrder, []),
+		count,
+		offset: listConfig.skip,
+		limit: listConfig.take,
+	});
 }
 
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
@@ -36,4 +50,47 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 	return res.status(200).json({ supplierOrder });
 }
 
-export const AUTHENTICATE = false;
+/**
+ * Parameters used to filter and configure the pagination of the retrieved orders.
+ */
+export class AdminGetSupplierOrdersParams extends AdminListSupplierOrdersSelector {
+	/**
+	 * {@inheritDoc FindPaginationParams.offset}
+	 * @defaultValue 0
+	 */
+	@IsNumber()
+	@IsOptional()
+	@Type(() => Number)
+	offset = 0;
+
+	/**
+	 * {@inheritDoc FindPaginationParams.limit}
+	 * @defaultValue 50
+	 */
+	@IsNumber()
+	@IsOptional()
+	@Type(() => Number)
+	limit = 50;
+
+	/**
+	 * {@inheritDoc FindParams.expand}
+	 */
+	@IsString()
+	@IsOptional()
+	expand?: string;
+
+	/**
+	 * {@inheritDoc FindParams.fields}
+	 */
+	@IsString()
+	@IsOptional()
+	fields?: string;
+
+	/**
+	 * The field to sort retrieved orders by. By default, the sort order is ascending.
+	 * To change the order to descending, prefix the field name with `-`.
+	 */
+	@IsOptional()
+	@IsString()
+	order?: string;
+}

@@ -725,7 +725,6 @@ export default class MyOrderEditService extends TransactionBaseService {
 		);
 		try {
 			await myPaymentServiceTx.updateAmountPayment(paymentId, amount);
-			console.log('total');
 		} catch (error) {
 			throw new MedusaError(
 				MedusaError.Types.INVALID_DATA,

@@ -1,14 +1,14 @@
 import {
+	AuthenticatedMedusaRequest,
 	LineItem,
 	LineItemService,
-	MedusaRequest,
 	MedusaResponse,
 	OrderService,
 } from '@medusajs/medusa';
 import MyPaymentService from 'src/services/my-payment';
 
 export async function POST(
-	req: MedusaRequest,
+	req: AuthenticatedMedusaRequest,
 	res: MedusaResponse
 ): Promise<void> {
 	const lineItemService = req.scope.resolve<LineItemService>('lineItemService');

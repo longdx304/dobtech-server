@@ -12,6 +12,7 @@ import {
 	PaymentProviderService,
 	PaymentSession,
 	PaymentStatus,
+	QuerySelector,
 	RegionService,
 	TotalsService,
 	TransactionBaseService,
@@ -32,7 +33,7 @@ import {
 	UpdateSupplierOrderInput,
 } from 'src/types/supplier-orders';
 import { FlagRouter } from 'src/utils/flag-router';
-import { EntityManager } from 'typeorm';
+import { EntityManager, FindManyOptions } from 'typeorm';
 import {
 	FulfillSupplierOrderStt,
 	SupplierOrder,
@@ -208,7 +209,7 @@ class SupplierOrderService extends TransactionBaseService {
 	}
 
 	async listAndCount(
-		selector: SupplierOrderSelector = {},
+		selector: QuerySelector<SupplierOrder>,
 		config: FindConfig<SupplierOrder> = {
 			skip: 0,
 			take: 20,
@@ -225,12 +226,15 @@ class SupplierOrderService extends TransactionBaseService {
 			created_at: 'DESC',
 		};
 
-		const query = buildQuery(supplierOrderSelectorRest, config);
+		const query = buildQuery(
+			supplierOrderSelectorRest,
+			config
+		) as FindManyOptions<SupplierOrder>;
 
-		// Get totals relations and transform query for totals
 		const { select, relations } = this.transformQueryForTotals(config);
-		query.select = buildSelects(select || []); // Select necessary fields
-		const rels = buildRelations(this.getTotalsRelations({ relations })); // Get necessary relations
+		query.select = buildSelects(select || []);
+
+		const rels = buildRelations(this.getTotalsRelations({ relations }));
 
 		// Remove original relations from the query to avoid conflicts
 		delete query.relations;
