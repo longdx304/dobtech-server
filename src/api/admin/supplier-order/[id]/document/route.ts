@@ -5,9 +5,10 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 	const supplierOrderDocService: SupplierOrderDocumentService =
 		req.scope.resolve('supplierOrderDocumentService');
 
-	const data = await req.body;
+	const data = (await req.body) as { documents: string[] };
+	const { documents } = data;
 	const { id } = req.params;
 
-	await supplierOrderDocService.create(id, data as string[]);
+	await supplierOrderDocService.create(id, documents as string[]);
 	return res.status(200).json({ success: true });
 }
