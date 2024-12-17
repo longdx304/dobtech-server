@@ -17,12 +17,6 @@ export const config: MiddlewaresConfig = {
 		{
 			matcher: '/admin/uploads',
 			method: 'POST',
-			middlewares: [
-				cors.default({
-					credentials: true,
-					origin: parseCorsOrigins(process.env.ADMIN_CORS ?? ''),
-				}),
-			],
 			bodyParser: {
 				sizeLimit: '100mb',
 			},

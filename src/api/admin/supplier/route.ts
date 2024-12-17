@@ -30,5 +30,3 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 	const supplier = await supplierService.create(data as CreateSupplierInput);
 	return res.status(200).json({ supplier });
 }
-
-export const AUTHENTICATE = false;

@@ -1,7 +1,11 @@
 import { ExtendedFindConfig } from '@medusajs/medusa';
 import { dataSource } from '@medusajs/medusa/dist/loaders/database';
-import { objectToStringPath } from '@medusajs/utils';
-import { flatten, groupBy, map, merge } from 'lodash';
+import {
+	getGroupedRelations,
+	mergeEntitiesWithRelations,
+} from '@medusajs/medusa/dist/utils/repository';
+import { objectToStringPath, promiseAll } from '@medusajs/utils';
+import { flatten } from 'lodash';
 
 import {
 	FindManyOptions,
@@ -60,35 +64,23 @@ const SupplierOrderRepository = dataSource.getRepository(SupplierOrder).extend({
 		const entities = await this.find(optionsWithoutRelations);
 		const entitiesIds = entities.map(({ id }) => id);
 
-		const groupedRelations: { [topLevel: string]: string[] } = {};
-		for (const rel of objectToStringPath(relations)) {
-			const [topLevel] = rel.split('.');
-			if (groupedRelations[topLevel]) {
-				groupedRelations[topLevel].push(rel);
-			} else {
-				groupedRelations[topLevel] = [rel];
-			}
-		}
+		const groupedRelations = getGroupedRelations(objectToStringPath(relations));
 
-		const entitiesIdsWithRelations = await Promise.all(
+		const entitiesIdsWithRelations = await promiseAll(
 			Object.entries(groupedRelations).map(async ([topLevel, rels]) => {
 				// If top level is region or items then get deleted region as well
 				return this.find({
 					where: { id: In(entitiesIds) },
 					select: ['id'],
 					relations: rels,
-					withDeleted:
-						topLevel === ITEMS_REL_NAME || topLevel === REGION_REL_NAME,
+					withDeleted: [ITEMS_REL_NAME, REGION_REL_NAME].includes(topLevel),
 					relationLoadStrategy: 'join',
 				});
 			})
 		).then(flatten);
 
-		const entitiesAndRelations = entitiesIdsWithRelations.concat(entities);
-
-		const entitiesAndRelationsById = groupBy(entitiesAndRelations, 'id');
-
-		return map(entities, (e) => merge({}, ...entitiesAndRelationsById[e.id]));
+		const entitiesAndRelations = entities.concat(entitiesIdsWithRelations);
+		return mergeEntitiesWithRelations<SupplierOrder>(entitiesAndRelations);
 	},
 
 	async findOneWithRelations(

@@ -30,5 +30,3 @@ export async function POST(
 	const item_unit = await itemUnitService.create(data);
 	return res.status(200).json({ item_unit });
 }
-
-export const AUTHENTICATE = false;
