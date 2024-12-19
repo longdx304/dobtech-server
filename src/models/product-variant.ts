@@ -11,4 +11,7 @@ export class ProductVariant extends MedusaProductVariant {
 
 	@Column()
 	allowed_quantities: number;
+
+	@Column()
+	cogs_price: number;
 }

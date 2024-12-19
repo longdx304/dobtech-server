@@ -9,18 +9,18 @@ import LineItemRepository from '@medusajs/medusa/dist/repositories/line-item';
 import { TotalsContext } from '@medusajs/medusa/dist/types/orders';
 import { isDefined, MedusaError } from '@medusajs/utils';
 import SupplierOrderRepository from 'src/repositories/supplier-order';
+import {
+	AdminPostItemInventory,
+	CreateWarehouseWithVariant,
+} from 'src/types/warehouse';
 import { EntityManager, In } from 'typeorm';
 import {
 	FulfillSupplierOrderStt,
 	SupplierOrder,
 } from '../models/supplier-order';
+import InventoryTransactionService from './inventory-transaction';
 import SupplierOrderService from './supplier-order';
 import WarehouseService from './warehouse';
-import InventoryTransactionService from './inventory-transaction';
-import {
-	AdminPostItemInventory,
-	CreateWarehouseWithVariant,
-} from 'src/types/warehouse';
 import WarehouseInventoryService from './warehouse-inventory';
 
 type InjectedDependencies = {
@@ -204,6 +204,10 @@ class ProductInboundService extends TransactionBaseService {
 
 			let isFullyInventoried = true;
 
+			let inventoryCogs = 0;
+			let currentPrice = 0;
+			let avgCorsPrice = 0;
+
 			// Process each line item
 			for (const item of supplierOrder.items) {
 				// Default fulfilled_quantity to 0 if not set
@@ -220,11 +224,33 @@ class ProductInboundService extends TransactionBaseService {
 					);
 				}
 
+				// retrieve the variant
+				const currentVariant = await productVariantServiceTx.retrieve(
+					item.variant_id
+				);
+
+				// inventory cogs for whole warehouse
+				inventoryCogs =
+					currentVariant.inventory_quantity *
+					(currentVariant.cogs_price ||
+						currentVariant.supplier_price ||
+						item.unit_price);
+
+				// Update current price for this order
+				currentPrice = additionalInventory * item.unit_price;
+
+				// Update inventory cogs
+				avgCorsPrice = Math.round(
+					(currentPrice + inventoryCogs) /
+						(currentVariant.inventory_quantity + additionalInventory)
+				);
+
 				// Update inventory quantity
 				await productVariantServiceTx.update(item.variant.id, {
 					inventory_quantity:
 						item.variant.inventory_quantity + additionalInventory,
-				});
+					cogs_price: avgCorsPrice,
+				} as any);
 
 				await lineItemServiceTx.update(item.id, {
 					fulfilled_quantity: warehouseQuantity,
@@ -265,7 +291,7 @@ class ProductInboundService extends TransactionBaseService {
 				this.inventoryTransactionService_.withTransaction(manager);
 
 			const warehouse = await warehouseServiceTx.createWarehouseWithVariant(
-				dataWarehouse,
+				dataWarehouse
 			);
 
 			// retrieve warehouse
