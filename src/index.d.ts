@@ -17,6 +17,7 @@ export declare module '@medusajs/medusa/dist/models/product-variant' {
 	declare interface ProductVariant {
 		supplier_price: number | null;
 		allowed_quantities: number | null;
+		cogs_price: number | null;
 	}
 }
 
