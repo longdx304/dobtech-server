@@ -102,7 +102,7 @@ class SupplierService extends TransactionBaseService {
         });
 
         if (existingSupplier) {
-          throw new Error('A supplier with this email already exists');
+          throw new Error('Đã tồn tại NCC với email này! Vui lòng sử dụng email khác');
         }
 
         // Create a new instance of the Supplier entity
