@@ -1,15 +1,22 @@
-import { MedusaError } from '@medusajs/utils';
 import type {
 	AuthenticatedMedusaRequest,
 	MedusaResponse,
+	UserService,
 } from '@medusajs/medusa';
+import { MedusaError } from '@medusajs/utils';
 import ProductInboundService from 'src/services/product-inbound';
-import { FulfillSupplierOrderStt } from '../../../models/supplier-order';
 import {
 	AdminPostItemInventory,
 	CreateWarehouseWithVariant,
 } from 'src/types/warehouse';
+import { FulfillSupplierOrderStt } from '../../../models/supplier-order';
 
+type AdminGetProductInboundParams = {
+	offset?: string;
+	limit?: string;
+	status?: string;
+	myOrder?: boolean;
+};
 export async function GET(
 	req: AuthenticatedMedusaRequest,
 	res: MedusaResponse
@@ -17,11 +24,14 @@ export async function GET(
 	const productInboundService: ProductInboundService = req.scope.resolve(
 		'productInboundService'
 	);
+	const userService: UserService = req.scope.resolve('userService');
 
-	const searchParams = req.query;
+	const user_id = (req.user?.id ?? req.user?.userId) as string;
 
-	const { offset, limit, status } = searchParams;
+	let { offset, limit, status, myOrder } =
+		req.query as AdminGetProductInboundParams;
 
+	// filter fulfillment status
 	const parsedStatuses = status
 		? (status as FulfillSupplierOrderStt)
 		: [
@@ -30,8 +40,14 @@ export async function GET(
 				FulfillSupplierOrderStt.INVENTORIED,
 		  ];
 
+	// check if user is admin
+	const user = await userService.retrieve(user_id);
+	const isAdmin = user.role === 'admin';
+
 	const [supplierOrder, count] = await productInboundService.listAndCount(
 		parsedStatuses,
+		isAdmin ? false : myOrder,
+		user_id,
 		{
 			skip: (offset ?? 0) as number,
 			take: (limit ?? 20) as number,
