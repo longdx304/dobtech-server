@@ -16,18 +16,14 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
 	);
 	const { id } = req.params;
 
-	try {
-		let supplierOrder: Partial<SupplierOrder> =
-			await supplierOrderService.retrieveWithTotals(id, req.retrieveConfig, {
-				includes: req.includes,
-			});
+	let supplierOrder: Partial<SupplierOrder> =
+		await supplierOrderService.retrieveWithTotals(id, req.retrieveConfig, {
+			includes: req.includes,
+		});
 
-		supplierOrder = cleanResponseData(supplierOrder, req.allowedProperties);
+	supplierOrder = cleanResponseData(supplierOrder, req.allowedProperties);
 
-		res.json({ supplierOrder: cleanResponseData(supplierOrder, []) });
-	} catch (error) {
-		return res.status(404).json({ error: error.message });
-	}
+	res.json({ supplierOrder: cleanResponseData(supplierOrder, []) });
 }
 
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
@@ -36,22 +32,18 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 	);
 	const { id } = req.params;
 
-	try {
-		const supplierOrder = await supplierOrderService.update(
-			id,
-			req.body as UpdateSupplierOrderInput
-		);
+	const supplierOrder = await supplierOrderService.update(
+		id,
+		req.body as UpdateSupplierOrderInput
+	);
 
-		if (!supplierOrder) {
-			return res
-				.status(404)
-				.json({ error: 'Không tìm thấy đơn hàng của nhà cung cấp' });
-		}
-
-		return res.status(200).json({ supplierOrder });
-	} catch (error) {
-		return res.status(404).json({ error: error.message });
+	if (!supplierOrder) {
+		return res
+			.status(404)
+			.json({ error: 'Không tìm thấy đơn hàng của nhà cung cấp' });
 	}
+
+	return res.status(200).json({ supplierOrder });
 }
 
 export async function DELETE(
@@ -70,13 +62,9 @@ export async function DELETE(
 			.json({ error: 'lineItemId is required in the request body' });
 	}
 
-	try {
-		const updatedSupplierOrder = await supplierOrderService.deleteLineItem(
-			id,
-			lineItemId
-		);
-		return res.status(200).json({ supplierOrder: updatedSupplierOrder });
-	} catch (error) {
-		return res.status(500).json({ error: 'An unexpected error occurred' });
-	}
+	const updatedSupplierOrder = await supplierOrderService.deleteLineItem(
+		id,
+		lineItemId
+	);
+	return res.status(200).json({ supplierOrder: updatedSupplierOrder });
 }

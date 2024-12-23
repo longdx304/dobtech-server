@@ -69,6 +69,8 @@ class ProductInboundService extends TransactionBaseService {
 
 	async listAndCount(
 		status: FulfillSupplierOrderStt | FulfillSupplierOrderStt[],
+		myOrder?: boolean,
+		user_id?: string,
 		config: FindConfig<SupplierOrder> = {
 			skip: 0,
 			take: 20,
@@ -85,9 +87,17 @@ class ProductInboundService extends TransactionBaseService {
 			order: config.order || { created_at: 'DESC' },
 		};
 
-		const whereClause = Array.isArray(status)
-			? { fulfillment_status: In(status) } // Handle multiple statuses
-			: { fulfillment_status: status }; // Handle a single status
+		let whereClause: any = Array.isArray(status)
+			? { fulfillment_status: In(status) }
+			: { fulfillment_status: status };
+
+		// Add handler_id filter for non-admin users
+		if (myOrder) {
+			whereClause = {
+				...whereClause,
+				handler_id: user_id,
+			};
+		}
 
 		const query = buildQuery(whereClause, queryConfig);
 

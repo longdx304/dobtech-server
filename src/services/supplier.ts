@@ -1,6 +1,7 @@
 import { TransactionBaseService } from '@medusajs/medusa';
+import { MedusaError } from '@medusajs/utils';
 import { CreateSupplierInput, UpdateSupplierInput } from 'src/types/supplier';
-import { EntityManager, Not, IsNull, ILike } from 'typeorm';
+import { EntityManager, ILike } from 'typeorm';
 import { Supplier } from '../models/supplier';
 import SupplierRepository from '../repositories/supplier';
 
@@ -102,7 +103,10 @@ class SupplierService extends TransactionBaseService {
         });
 
         if (existingSupplier) {
-          throw new Error('Đã tồn tại NCC với email này! Vui lòng sử dụng email khác');
+          throw new MedusaError(
+            MedusaError.Types.DUPLICATE_ERROR,
+            `Tạo nhà cung cấp với email ${data.email} đã tồn tại. Vui lòng sử dụng email khác`
+          );
         }
 
         // Create a new instance of the Supplier entity

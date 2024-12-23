@@ -1,4 +1,5 @@
 import { ProductVariant } from '@medusajs/medusa/dist/models/product-variant';
+import { FulfullmentStatus } from './models/fulfillment';
 export declare module '@medusajs/medusa/dist/models/user' {
 	declare interface User {
 		phone: string;
@@ -60,5 +61,16 @@ export declare module '@medusajs/medusa/dist/models/price-list' {
 	declare interface PriceList {
 		customer_id: string | null;
 		customer: Customer;
+	}
+}
+
+export declare module '@medusajs/medusa/dist/models/fulfillment' {
+	declare interface Fulfillment {
+		shipped_id: string | null;
+		checker_id: string | null;
+		checked_at: Date | null;
+		checker_url: string | null;
+		shipped_url: string | null;
+		status: FulfullmentStatus;
 	}
 }

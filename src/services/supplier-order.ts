@@ -475,12 +475,14 @@ class SupplierOrderService extends TransactionBaseService {
 				};
 
 				// Send email to the supplier and admin
-				await this.emailsService_.sendEmail(
-					supplierOrderWithRelations.supplier.email,
-					SupplierOrderService.Events.SEND_EMAIL,
-					supplierOrderWithRelations,
-					optionsEmail
-				);
+				if (data.isSendEmail) {
+					await this.emailsService_.sendEmail(
+						supplierOrderWithRelations.supplier.email,
+						SupplierOrderService.Events.SEND_EMAIL,
+						supplierOrderWithRelations,
+						optionsEmail
+					);
+				}
 
 				return supplierOrder as SupplierOrder;
 			}

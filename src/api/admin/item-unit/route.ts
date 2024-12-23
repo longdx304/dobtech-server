@@ -12,12 +12,8 @@ export async function GET(
 ) {
 	const itemUnitService: ItemUnitService = req.scope.resolve('itemUnitService');
 
-	try {
-		const item_units = await itemUnitService.list();
-		return res.status(200).json({ item_units });
-	} catch (error) {
-		return res.status(500).json({ error: error.message });
-	}
+	const item_units = await itemUnitService.list();
+	return res.status(200).json({ item_units });
 }
 
 export async function POST(
