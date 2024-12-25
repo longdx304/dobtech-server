@@ -11,7 +11,10 @@ import {
 	FulfillSupplierOrderStt,
 	OrderStatus,
 	PaymentStatus,
+	SupplierOrder,
 } from '../models/supplier-order';
+
+export type UpdateSupplierOrder = Partial<SupplierOrder> & {};
 
 export type LineItem = {
 	variantId: string;

@@ -7,7 +7,7 @@ import { SupplierOrder } from 'src/models/supplier-order';
 import SupplierOrderService from 'src/services/supplier-order';
 import {
 	DeleteLineItemRequest,
-	UpdateSupplierOrderInput,
+	UpdateSupplierOrder,
 } from 'src/types/supplier-orders';
 
 export async function GET(req: MedusaRequest, res: MedusaResponse) {
@@ -31,17 +31,9 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 		'supplierOrderService'
 	);
 	const { id } = req.params;
+	const data = req.body as UpdateSupplierOrder;
 
-	const supplierOrder = await supplierOrderService.update(
-		id,
-		req.body as UpdateSupplierOrderInput
-	);
-
-	if (!supplierOrder) {
-		return res
-			.status(404)
-			.json({ error: 'Không tìm thấy đơn hàng của nhà cung cấp' });
-	}
+	const supplierOrder = await supplierOrderService.update(id, data);
 
 	return res.status(200).json({ supplierOrder });
 }
