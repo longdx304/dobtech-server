@@ -4,7 +4,8 @@ import {
 	Fulfillment as MedusaFulfillment,
 	resolveDbType,
 } from '@medusajs/medusa';
-import { Column, Entity, Index } from 'typeorm';
+import { Column, Entity, Index, JoinColumn, OneToOne } from 'typeorm';
+import { User } from './user';
 
 export enum FulfullmentStatus {
 	AWAITING = 'awaiting',
@@ -19,9 +20,17 @@ export class Fulfillment extends MedusaFulfillment {
 	@Column({ nullable: true })
 	shipped_id: string;
 
+	@OneToOne(() => User)
+	@JoinColumn({ name: 'shipped_id' })
+	shipper: User;
+
 	@Index()
 	@Column({ nullable: true })
 	checker_id: string;
+
+	@OneToOne(() => User)
+	@JoinColumn({ name: 'checker_id' })
+	checker: User;
 
 	@Column({ type: resolveDbType('timestamptz'), nullable: true })
 	checked_at: Date | null;

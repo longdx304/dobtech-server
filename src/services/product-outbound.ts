@@ -513,6 +513,30 @@ class ProductOutboundService extends TransactionBaseService {
 
 		await orderRepo.save(order);
 	}
+
+	async removeHandler(id: string, userId: string) {
+		const orderRepo = this.activeManager_.withRepository(this.orderRepository_);
+
+		const order = await orderRepo.findOne({ where: { id } });
+
+		if (!order) {
+			throw new MedusaError(
+				MedusaError.Types.NOT_FOUND,
+				`Không tìm thấy đơn hàng với id ${id}`
+			);
+		}
+
+		if (order?.handler_id !== userId) {
+			throw new MedusaError(
+				MedusaError.Types.NOT_ALLOWED,
+				`Bạn không thể xóa người xử lý của đơn hàng này`
+			);
+		}
+
+		order.handler_id = null;
+
+		await orderRepo.save(order);
+	}
 }
 
 export default ProductOutboundService;
