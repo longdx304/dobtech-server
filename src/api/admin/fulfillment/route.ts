@@ -14,8 +14,6 @@ export async function GET(
 		'myFulfillmentService'
 	);
 
-	console.log('req.query', req.query)
-
 	const { filterableFields, listConfig } = await transformQuery(
 		AdminFulfillmentParams,
 		req.query,
@@ -25,7 +23,6 @@ export async function GET(
 	);
 	const isDone = filterableFields.isDone;
 	delete filterableFields.isDone;
-	console.log('isDone, :', isDone);
 	const [fulfillment, count] = await myFulfillmentService.listAndCount(
 		filterableFields as any,
 		listConfig,

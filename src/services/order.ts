@@ -1,7 +1,7 @@
 import {
 	Cart,
 	OrderService as MedusaOrderService,
-	Order,
+	PricingService,
 } from '@medusajs/medusa';
 import { ORDER_CART_ALREADY_EXISTS_ERROR } from '@medusajs/medusa/dist/services/order';
 import {
@@ -12,17 +12,25 @@ import {
 	promiseAll,
 	SalesChannelFeatureFlag,
 } from '@medusajs/utils';
+import { Order } from 'src/models/order';
 import { EntityManager } from 'typeorm';
+import PriceListService from './price-list';
 
 type InjectedDependencies = {
 	manager: EntityManager;
+	pricingService: PricingService;
+	priceListService: PriceListService;
 };
 
 class OrderService extends MedusaOrderService {
 	protected manager_: EntityManager;
+	protected readonly pricingService_: PricingService;
+	protected readonly priceListService_: PriceListService;
 
-	constructor({}: InjectedDependencies) {
+	constructor({ pricingService, priceListService }: InjectedDependencies) {
 		super(arguments[0]);
+		this.pricingService_ = pricingService;
+		this.priceListService_ = priceListService;
 	}
 
 	async asignOrderToHandler(orderId: string, handlerId: string) {
@@ -272,8 +280,83 @@ class OrderService extends MedusaOrderService {
 
 			await cartServiceTx.update(cart.id, { completed_at: new Date() });
 
+			// Updates the private price for a customer based on the changes in an order.
+			await this.customerPrivatePrice(order.id);
 			return order;
 		});
+	}
+
+	/**
+	 * Updates the private price for a customer based on the changes in an order.
+	 *
+	 * @param manager - The transaction manager to use for database operations.
+	 * @param orderEditId - The ID of the order edit to process.
+	 * @returns A promise that resolves when the operation is complete.
+	 *
+	 * This method performs the following steps:
+	 * 1. Retrieves the order edit and its related changes.
+	 * 2. Finds the item update change in the order edit.
+	 * 3. Retrieves the customer, currency code, and payment details of the order.
+	 * 4. Updates the payment amount based on the total order amount.
+	 * 5. Retrieves the pricing of the product variant for the customer.
+	 * 6. Inserts or updates the private price of the customer if certain conditions are met.
+	 */
+	protected async customerPrivatePrice(order_id: string): Promise<void> {
+		const pricingServiceTx = this.pricingService_.withTransaction(
+			this.activeManager_
+		);
+		const priceListServiceTx = this.priceListService_.withTransaction(
+			this.activeManager_
+		);
+
+		// Get the customer, currency code of the order
+		const { customer_id, customer, currency_code, items }: Order =
+			await this.retrieveWithTotals(order_id, {
+				relations: ['customer', 'payments'],
+			});
+
+		if (!items?.length) {
+			return;
+		}
+
+		await Promise.all(
+			items.map(async (item) => {
+				// Get the pricing of the product variant
+				const pricingItem = await pricingServiceTx.getProductVariantPricing(
+					{
+						id: item.variant_id,
+						product_id: item.variant.product_id,
+					},
+					{
+						customer_id,
+						currency_code,
+					}
+				);
+
+				// Insert or Update the private price of the
+				// customer based on the calculated price
+				if (
+					customer_id &&
+					pricingItem &&
+					pricingItem.calculated_price_type !== 'sale' &&
+					item.unit_price < pricingItem.calculated_price
+				) {
+					const upsertPriceListInput = {
+						currency_code: currency_code,
+						amount: item.unit_price,
+						variant_id: item.variant_id,
+					};
+					await priceListServiceTx.upsertPrivatePriceList(
+						{
+							id: customer_id,
+							name: `${customer?.last_name} ${customer?.first_name}`,
+							email: customer?.email,
+						},
+						upsertPriceListInput
+					);
+				}
+			})
+		);
 	}
 }
 

@@ -78,8 +78,6 @@ class MyFulfillmentService extends TransactionBaseService {
 				checked_at: IsNull(),
 			};
 		}
-		console.log('query:', query);
-
 		// Fetch fulfillments with related data
 		const [fulfillments, count] = await fulfillmentRepo.findAndCount(query);
 
@@ -165,11 +163,11 @@ class MyFulfillmentService extends TransactionBaseService {
 				}
 				if (data.shipped_url) {
 					data.shipped_at = new Date();
+					await this.orderService_.createShipment(fulfillment.order_id, id);
 				}
 
 				Object.assign(fulfillment, data);
 
-				console.log('fulfillment:', fulfillment);
 				const result = await fulfillmentRepo.save(fulfillment);
 
 				return result;
