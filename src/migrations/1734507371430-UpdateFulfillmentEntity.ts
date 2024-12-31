@@ -24,6 +24,13 @@ export class UpdateFulfillmentEntity1734507371430
             ADD COLUMN "shipped_url" text,
             ADD COLUMN "status" "fulfillment_status_enum" NOT NULL DEFAULT 'awaiting'
         `);
+		//Add foreign key constraint
+		await queryRunner.query(`
+			ALTER TABLE "fulfillment" ADD CONSTRAINT "fk_fulfillment_shipped_id" FOREIGN KEY ("shipped_id") REFERENCES "user" ("id")
+		`);
+		await queryRunner.query(`
+			ALTER TABLE "fulfillment" ADD CONSTRAINT "fk_fulfillment_checker_id" FOREIGN KEY ("checker_id") REFERENCES "user" ("id")
+		`);
 
 		// Create indexes
 		await queryRunner.query(`
