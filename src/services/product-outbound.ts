@@ -54,6 +54,8 @@ class ProductOutboundService extends TransactionBaseService {
 
 	async listAndCount(
 		status: FulfillmentStatus | FulfillmentStatus[],
+		myOrder?: boolean,
+		user_id?: string,
 		config: FindConfig<Order> = {
 			skip: 0,
 			take: 20,
@@ -63,9 +65,9 @@ class ProductOutboundService extends TransactionBaseService {
 
 		let fulfillStt: any = status;
 		if (!Array.isArray(status)) {
-			status === FulfillmentStatus.FULFILLED
+			status === FulfillmentStatus.NOT_FULFILLED
 				? (fulfillStt = status)
-				: (fulfillStt = Not(FulfillmentStatus.FULFILLED));
+				: (fulfillStt = Not(FulfillmentStatus.NOT_FULFILLED));
 		}
 
 		const queryConfig = {
@@ -73,13 +75,24 @@ class ProductOutboundService extends TransactionBaseService {
 			take: config.take || 20,
 			relations: ['handler'],
 			order: config.order || { created_at: 'DESC' },
-			where: {
-				fulfillment_status: Array.isArray(status) ? In(status) : fulfillStt,
-			},
 		};
 
-		const count = await orderRepo.count(queryConfig);
-		const orders = await orderRepo.find(queryConfig);
+		let whereClause: any = { fulfillment_status: fulfillStt };
+		// Array.isArray(status)
+		// 	? { fulfillment_status: In(status) }
+		// 	: { fulfillment_status: fulfillStt };
+
+		if (myOrder) {
+			whereClause = {
+				// ...whereClause,
+				handler_id: user_id,
+			};
+		}
+
+		const query = buildQuery(whereClause, queryConfig);
+
+		const count = await orderRepo.count(query);
+		const orders = await orderRepo.find(query);
 
 		return [orders, count];
 	}
@@ -98,7 +111,8 @@ class ProductOutboundService extends TransactionBaseService {
 		const orderRepo = this.activeManager_.withRepository(this.orderRepository_);
 
 		const query = buildQuery(
-			{ id: orderId, handler_id: Not(IsNull()) },
+			{ id: orderId },
+			// { id: orderId, handler_id: Not(IsNull()) },
 			config
 		);
 
@@ -498,6 +512,30 @@ class ProductOutboundService extends TransactionBaseService {
 		}
 
 		order.handler_id = userId;
+
+		await orderRepo.save(order);
+	}
+
+	async removeHandler(id: string, userId: string) {
+		const orderRepo = this.activeManager_.withRepository(this.orderRepository_);
+
+		const order = await orderRepo.findOne({ where: { id } });
+
+		if (!order) {
+			throw new MedusaError(
+				MedusaError.Types.NOT_FOUND,
+				`Không tìm thấy đơn hàng với id ${id}`
+			);
+		}
+
+		if (order?.handler_id !== userId) {
+			throw new MedusaError(
+				MedusaError.Types.NOT_ALLOWED,
+				`Bạn không thể xóa người xử lý của đơn hàng này`
+			);
+		}
+
+		order.handler_id = null;
 
 		await orderRepo.save(order);
 	}

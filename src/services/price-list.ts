@@ -36,7 +36,7 @@ class PriceListService extends MedusaPriceListService {
 	}
 
 	async upsertPrivatePriceList(
-		customer: { id: string; name: string },
+		customer: { id: string; name: string; email: string },
 		prices: AdminPriceListPricesCreateReq | AdminPriceListPricesUpdateReq
 	): Promise<PriceList | never> {
 		return await this.atomicPhase_(async (manager: EntityManager) => {
@@ -46,7 +46,7 @@ class PriceListService extends MedusaPriceListService {
 			if (!priceList) {
 				const priceList_ = await this.create({
 					name: customer.name,
-					description: `Danh sách giá dành cho ${customer.name}`,
+					description: `Danh sách giá dành cho ${customer.name}(${customer.email})`,
 					type: PriceListType.OVERRIDE,
 					prices: [prices],
 					status: PriceListStatus.ACTIVE,

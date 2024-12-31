@@ -69,6 +69,8 @@ class ProductInboundService extends TransactionBaseService {
 
 	async listAndCount(
 		status: FulfillSupplierOrderStt | FulfillSupplierOrderStt[],
+		myOrder?: boolean,
+		user_id?: string,
 		config: FindConfig<SupplierOrder> = {
 			skip: 0,
 			take: 20,
@@ -85,9 +87,17 @@ class ProductInboundService extends TransactionBaseService {
 			order: config.order || { created_at: 'DESC' },
 		};
 
-		const whereClause = Array.isArray(status)
-			? { fulfillment_status: In(status) } // Handle multiple statuses
-			: { fulfillment_status: status }; // Handle a single status
+		let whereClause: any = Array.isArray(status)
+			? { fulfillment_status: In(status) }
+			: { fulfillment_status: status };
+
+		// Add handler_id filter for non-admin users
+		if (myOrder) {
+			whereClause = {
+				...whereClause,
+				handler_id: user_id,
+			};
+		}
 
 		const query = buildQuery(whereClause, queryConfig);
 
@@ -400,6 +410,37 @@ class ProductInboundService extends TransactionBaseService {
 		}
 
 		supplierOrder.handler_id = userId;
+
+		await supplierOrderRepo.save(supplierOrder);
+
+		return supplierOrder;
+	}
+
+	// Remove handler from supplier order
+	async removeHandler(id: string, userId: string) {
+		const supplierOrderRepo = this.activeManager_.withRepository(
+			this.supplierOrderRepository_
+		);
+
+		const supplierOrder = await supplierOrderRepo.findOne({
+			where: { id },
+		});
+
+		if (!supplierOrder) {
+			throw new MedusaError(
+				MedusaError.Types.NOT_FOUND,
+				`Không tìm thấy đơn hàng với id ${id}`
+			);
+		}
+
+		if (supplierOrder?.handler_id !== userId) {
+			throw new MedusaError(
+				MedusaError.Types.NOT_ALLOWED,
+				`Bạn không thể xóa người xử lý của đơn hàng này`
+			);
+		}
+
+		supplierOrder.handler_id = null;
 
 		await supplierOrderRepo.save(supplierOrder);
 

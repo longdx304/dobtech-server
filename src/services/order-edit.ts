@@ -229,6 +229,7 @@ class OrderEditService extends MedusaOrderEditService {
 				{
 					id: customer_id,
 					name: `${customer?.last_name} ${customer?.first_name}`,
+					email: customer?.email,
 				},
 				upsertPriceListInput
 			);

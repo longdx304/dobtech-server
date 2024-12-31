@@ -20,6 +20,7 @@ export type LineItem = {
 };
 
 export type CreateSupplierOrderInput = {
+	isSendEmail?: boolean;
 	lineItems: LineItem[];
 	supplierId: string;
 	userId: string;

@@ -3,18 +3,25 @@ import {
 	CartService,
 	cleanResponseData,
 	DraftOrderService,
+	EventBusService,
 	MedusaResponse,
 	Order,
-	OrderService,
+	// OrderService,
 	PaymentProviderService,
-	ProductVariantInventoryService
+	ProductVariantInventoryService,
 } from '@medusajs/medusa';
 import {
 	defaultAdminOrdersFields,
 	defaultAdminOrdersRelations,
 } from '@medusajs/medusa/dist/types/orders';
 import { MedusaError, promiseAll } from '@medusajs/utils';
+import OrderService from '../../../../../services/order';
 import { EntityManager } from 'typeorm';
+
+export type AdminPostDraftOrderReq = {
+	isSendEmail: boolean;
+	urlPdf: string;
+};
 
 export async function POST(
 	req: AuthenticatedMedusaRequest,
@@ -32,6 +39,8 @@ export async function POST(
 	const entityManager: EntityManager = req.scope.resolve('manager');
 	const productVariantInventoryService: ProductVariantInventoryService =
 		req.scope.resolve('productVariantInventoryService');
+
+	const data = (await req.body) as AdminPostDraftOrderReq;
 
 	const order = await entityManager.transaction(async (manager) => {
 		const draftOrderServiceTx = draftOrderService.withTransaction(manager);
@@ -52,7 +61,11 @@ export async function POST(
 
 		await cartServiceTx.authorizePayment(cart.id);
 
-		let order = await orderServiceTx.createFromCart(cart.id);
+		let order = await orderServiceTx.createFromCartDraft(
+			cart.id,
+			data.isSendEmail,
+			data.urlPdf
+		);
 
 		// retrieve the created order
 		order = await orderServiceTx.retrieve(order.id, {
