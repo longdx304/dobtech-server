@@ -26,4 +26,3 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 		res.status(400).json({ error: error.message });
 	}
 }
-
