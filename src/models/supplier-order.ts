@@ -59,6 +59,9 @@ export class SupplierOrder extends BaseEntity {
 	@Generated(resolveDbGenerationStrategy('increment'))
 	display_id: number;
 
+	@Column({ nullable: true })
+	display_name: string | null;
+
 	@Column()
 	supplier_id: string;
 
