@@ -30,10 +30,16 @@ import SupplierOrderRepository from 'src/repositories/supplier-order';
 import {
 	CreateSupplierOrderInput,
 	SupplierOrderSelector,
+	UpdateSupplierOrder,
 	UpdateSupplierOrderInput,
 } from 'src/types/supplier-orders';
 import { FlagRouter } from 'src/utils/flag-router';
-import { EntityManager, FindManyOptions } from 'typeorm';
+import {
+	EntityManager,
+	FindManyOptions,
+	FindOptionsWhere,
+	ILike,
+} from 'typeorm';
 import {
 	FulfillSupplierOrderStt,
 	SupplierOrder,
@@ -200,10 +206,7 @@ class SupplierOrderService extends TransactionBaseService {
 		const supplierOrderRepo = this.activeManager_.withRepository(
 			this.supplierOrderRepository_
 		);
-		const [supplierOrders, count] = await await this.listAndCount(
-			selector,
-			config
-		);
+		const [supplierOrders, count] = await this.listAndCount(selector, config);
 
 		return supplierOrders;
 	}
@@ -227,9 +230,21 @@ class SupplierOrderService extends TransactionBaseService {
 		};
 
 		const query = buildQuery(
-			supplierOrderSelectorRest,
+			{ ...supplierOrderSelectorRest },
 			config
 		) as FindManyOptions<SupplierOrder>;
+
+		if (q) {
+			const where = query.where as FindOptionsWhere<any>;
+			delete where.q;
+
+			query.where = [
+				{
+					...where,
+					display_name: ILike(`%${q}%`),
+				},
+			];
+		}
 
 		const { select, relations } = this.transformQueryForTotals(config);
 		query.select = buildSelects(select || []);
@@ -539,32 +554,24 @@ class SupplierOrderService extends TransactionBaseService {
 			});
 	}
 
-	/**
-	 * Creates a supplier order
-	 * @param {UpdateSupplierOrderInput} data The input data
-	 * @returns {Promise<SupplierOrder>} The created supplier order
-	 */
-	async update(
-		id: string,
-		data: UpdateSupplierOrderInput
-	): Promise<SupplierOrder> {
+	async update(id: string, data: UpdateSupplierOrder): Promise<SupplierOrder> {
 		return await this.atomicPhase_(
 			async (transactionManager: EntityManager) => {
-				// Retrieve the existing supplier order
-				const existingSupplierOrder = await this.retrieve(id);
-				if (!existingSupplierOrder) {
+				const supplierOrderRepository = transactionManager.withRepository(
+					this.supplierOrderRepository_
+				);
+				const supplierOrder = await supplierOrderRepository.findOne({
+					where: { id },
+				});
+				if (!supplierOrder) {
 					throw new MedusaError(
 						MedusaError.Types.NOT_FOUND,
 						`Đơn hàng với mã số ${id} không được tìm thấy`
 					);
 				}
 
-				// Update the cart with new line items
-				await this.updateCartWithLineItems(transactionManager, data);
-
-				// Retrieve the updated supplier order
-				const updatedSupplierOrder = await this.retrieve(id);
-				return updatedSupplierOrder;
+				Object.assign(supplierOrder, data);
+				return await supplierOrderRepository.save(supplierOrder);
 			}
 		);
 	}
