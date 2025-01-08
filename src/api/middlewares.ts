@@ -16,6 +16,16 @@ export const config: MiddlewaresConfig = {
 			],
 		},
 		{
+			matcher: '/store/uploads',
+			method: 'POST',
+			middlewares: [
+				multer({ dest: 'uploads/' }).array('files'),
+			],
+			bodyParser: {
+				sizeLimit: '100mb',
+			},
+		},
+		{
 			matcher: '/admin/uploads',
 			method: 'POST',
 			middlewares: [
