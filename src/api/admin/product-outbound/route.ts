@@ -26,10 +26,7 @@ export async function GET(
 		req.query as AdminGetProductOutboundParams;
 	const user_id = (req.user?.id ?? req.user?.userId) as string;
 
-	const parsedStatuses = status
-		? (status as FulfillmentStatus)
-		: [FulfillmentStatus.NOT_FULFILLED, FulfillmentStatus.FULFILLED];
-
+	const parsedStatuses = status as FulfillmentStatus;
 	// check if user is admin
 	const user = await userService.retrieve(user_id);
 	const isAdmin = user.role === 'admin';

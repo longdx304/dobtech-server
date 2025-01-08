@@ -16,9 +16,9 @@ export async function GET(
 	);
 
 	const { id } = req.params;
-
+	console.log('req.retrieveConfig', req.retrieveConfig);
 	let fulfillment: Partial<Fulfillment> =
-		await myFulfillmentService.retrieveWithTotals(id, req.retrieveConfig);
+		await myFulfillmentService.retrieveWithTotals(id);
 
 	fulfillment = cleanResponseData(fulfillment, req.allowedProperties);
 
@@ -36,8 +36,13 @@ export async function POST(
 	const { id } = req.params;
 
 	const data = (await req.body) as UpdateFulfillment;
+	const userId = (req.user?.id ?? req.user?.userId) as string;
 
-	const fulfillment = await myFulfillmentService.updateFulfillment(id, data);
+	const fulfillment = await myFulfillmentService.updateFulfillment(
+		userId,
+		id,
+		data
+	);
 
 	return res.status(200).json({ fulfillment });
 }

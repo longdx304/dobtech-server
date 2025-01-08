@@ -65,9 +65,9 @@ class ProductOutboundService extends TransactionBaseService {
 
 		let fulfillStt: any = status;
 		if (!Array.isArray(status)) {
-			status === FulfillmentStatus.FULFILLED
+			status === FulfillmentStatus.NOT_FULFILLED
 				? (fulfillStt = status)
-				: (fulfillStt = Not(FulfillmentStatus.FULFILLED));
+				: (fulfillStt = Not(FulfillmentStatus.NOT_FULFILLED));
 		}
 
 		const queryConfig = {
@@ -77,13 +77,14 @@ class ProductOutboundService extends TransactionBaseService {
 			order: config.order || { created_at: 'DESC' },
 		};
 
-		let whereClause: any = Array.isArray(status)
-			? { fulfillment_status: In(status) }
-			: { fulfillment_status: fulfillStt };
+		let whereClause: any = { fulfillment_status: fulfillStt };
+		// Array.isArray(status)
+		// 	? { fulfillment_status: In(status) }
+		// 	: { fulfillment_status: fulfillStt };
 
 		if (myOrder) {
 			whereClause = {
-				...whereClause,
+				// ...whereClause,
 				handler_id: user_id,
 			};
 		}
@@ -110,7 +111,8 @@ class ProductOutboundService extends TransactionBaseService {
 		const orderRepo = this.activeManager_.withRepository(this.orderRepository_);
 
 		const query = buildQuery(
-			{ id: orderId, handler_id: Not(IsNull()) },
+			{ id: orderId },
+			// { id: orderId, handler_id: Not(IsNull()) },
 			config
 		);
 
@@ -510,6 +512,30 @@ class ProductOutboundService extends TransactionBaseService {
 		}
 
 		order.handler_id = userId;
+
+		await orderRepo.save(order);
+	}
+
+	async removeHandler(id: string, userId: string) {
+		const orderRepo = this.activeManager_.withRepository(this.orderRepository_);
+
+		const order = await orderRepo.findOne({ where: { id } });
+
+		if (!order) {
+			throw new MedusaError(
+				MedusaError.Types.NOT_FOUND,
+				`Không tìm thấy đơn hàng với id ${id}`
+			);
+		}
+
+		if (order?.handler_id !== userId) {
+			throw new MedusaError(
+				MedusaError.Types.NOT_ALLOWED,
+				`Bạn không thể xóa người xử lý của đơn hàng này`
+			);
+		}
+
+		order.handler_id = null;
 
 		await orderRepo.save(order);
 	}

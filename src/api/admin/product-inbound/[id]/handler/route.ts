@@ -20,3 +20,22 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 
 	res.json({ message: 'Đã thêm người xử lý cho đơn hàng này' });
 }
+
+export async function DELETE(req: MedusaRequest, res: MedusaResponse) {
+	const productInboundService: ProductInboundService = req.scope.resolve(
+		'productInboundService'
+	);
+	const user_id = (req.user?.id ?? req.user?.userId) as string;
+
+	if (!user_id) {
+		throw new MedusaError(
+			MedusaError.Types.INVALID_DATA,
+			'Không tìm thấy user_id'
+		);
+	}
+	const { id } = req.params;
+
+	await productInboundService.removeHandler(id, user_id);
+
+	res.json({ message: 'Đã xóa người xử lý cho đơn hàng này' });
+}

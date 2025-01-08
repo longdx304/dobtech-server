@@ -415,6 +415,37 @@ class ProductInboundService extends TransactionBaseService {
 
 		return supplierOrder;
 	}
+
+	// Remove handler from supplier order
+	async removeHandler(id: string, userId: string) {
+		const supplierOrderRepo = this.activeManager_.withRepository(
+			this.supplierOrderRepository_
+		);
+
+		const supplierOrder = await supplierOrderRepo.findOne({
+			where: { id },
+		});
+
+		if (!supplierOrder) {
+			throw new MedusaError(
+				MedusaError.Types.NOT_FOUND,
+				`Không tìm thấy đơn hàng với id ${id}`
+			);
+		}
+
+		if (supplierOrder?.handler_id !== userId) {
+			throw new MedusaError(
+				MedusaError.Types.NOT_ALLOWED,
+				`Bạn không thể xóa người xử lý của đơn hàng này`
+			);
+		}
+
+		supplierOrder.handler_id = null;
+
+		await supplierOrderRepo.save(supplierOrder);
+
+		return supplierOrder;
+	}
 }
 
 export default ProductInboundService;

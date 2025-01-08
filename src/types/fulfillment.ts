@@ -25,6 +25,10 @@ export class AdminListFulfillmentsSelector {
 
 	@IsString()
 	@IsOptional()
+	checker_url?: string;
+
+	@IsString()
+	@IsOptional()
 	status?: string;
 
 	@IsString()
@@ -40,6 +44,10 @@ export class AdminListFulfillmentsSelector {
 	@ValidateNested()
 	@Type(() => DateComparisonOperator)
 	shipped_at?: DateComparisonOperator;
+
+	@IsString()
+	@IsOptional()
+	shipped_url?: string;
 
 	@IsOptional()
 	@ValidateNested()
@@ -61,4 +69,11 @@ export class AdminListFulfillmentsSelector {
 	@ValidateNested()
 	@Type(() => DateComparisonOperator)
 	updated_at?: DateComparisonOperator;
+}
+
+export enum FulfullmentStatus {
+	AWAITING = 'awaiting',
+	DELIVERING = 'delivering',
+	SHIPPED = 'shipped',
+	CANCELED = 'canceled',
 }

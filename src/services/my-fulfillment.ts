@@ -8,11 +8,11 @@ import {
 	QuerySelector,
 	TransactionBaseService,
 } from '@medusajs/medusa';
-import FulfillmentRepository from '@medusajs/medusa/dist/repositories/fulfillment';
 import LineItemRepository from '@medusajs/medusa/dist/repositories/line-item';
 import { isDefined, MedusaError } from '@medusajs/utils';
-import { Fulfillment } from 'src/models/fulfillment';
-import { UpdateFulfillment } from 'src/types/fulfillment';
+import { UpdateFulfillment, FulfullmentStatus } from '../types/fulfillment';
+import { Fulfillment } from '../models/fulfillment';
+import FulfillmentRepository from 'src/repositories/fulfillment';
 
 type InjectedDependencies = {
 	manager: EntityManager;
@@ -72,31 +72,16 @@ class MyFulfillmentService extends TransactionBaseService {
 				...query.where,
 				checked_at: Not(IsNull()),
 			};
+		} else {
+			query.where = {
+				...query.where,
+				checked_at: IsNull(),
+			};
 		}
-
 		// Fetch fulfillments with related data
 		const [fulfillments, count] = await fulfillmentRepo.findAndCount(query);
 
-		// For each fulfillment, fetch the complete order details
-		const enrichedFulfillments = await Promise.all(
-			fulfillments.map(async (fulfillment) => {
-				if (fulfillment.order_id) {
-					const order = await this.orderService_.retrieve(
-						fulfillment.order_id,
-						{
-							relations: ['items'],
-						}
-					);
-					return {
-						...fulfillment,
-						order,
-					};
-				}
-				return fulfillment;
-			})
-		);
-
-		return [enrichedFulfillments, count];
+		return [fulfillments, count];
 	}
 
 	async retrieve(
@@ -146,9 +131,10 @@ class MyFulfillmentService extends TransactionBaseService {
 		return await this.decorateTotals(fulfillment);
 	}
 
-	async updateFulfillment(id: string, data: UpdateFulfillment) {
+	async updateFulfillment(userId: string, id: string, data: UpdateFulfillment) {
 		return await this.atomicPhase_(
 			async (transactionManager: EntityManager) => {
+				console.log('data:', data);
 				const fulfillmentRepo = transactionManager.withRepository(
 					this.fulfillmentRepository_
 				);
@@ -164,12 +150,20 @@ class MyFulfillmentService extends TransactionBaseService {
 					);
 				}
 
-				if (data.checker_id) {
+				if (data.checker_url) {
 					data.checked_at = new Date();
+					data.checker_id = userId;
 				}
 
-				if (data.shipped_id) {
+				if (data?.status === FulfullmentStatus.AWAITING) {
+					data.shipped_id = null;
+				}
+				if (data?.status === FulfullmentStatus.DELIVERING) {
+					data.shipped_id = userId;
+				}
+				if (data.shipped_url) {
 					data.shipped_at = new Date();
+					await this.orderService_.createShipment(fulfillment.order_id, id);
 				}
 
 				Object.assign(fulfillment, data);
@@ -189,8 +183,11 @@ class MyFulfillmentService extends TransactionBaseService {
 		const relationSet = new Set(config.relations);
 
 		relationSet.add('order');
-
-		relationSet.add('order.items');
+		relationSet.add('shipper');
+		relationSet.add('checker');
+		relationSet.add('items.item');
+		relationSet.add('order.customer');
+		relationSet.add('order.shipping_address');
 
 		return Array.from(relationSet.values());
 	}

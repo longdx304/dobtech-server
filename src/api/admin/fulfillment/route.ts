@@ -1,9 +1,10 @@
 import { AuthenticatedMedusaRequest, MedusaResponse } from '@medusajs/medusa';
-import { Type } from 'class-transformer';
-import { IsNumber, IsOptional, IsString } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import { IsBoolean, IsNumber, IsOptional, IsString } from 'class-validator';
 import MyFulfillmentService from 'src/services/my-fulfillment';
 import { AdminListFulfillmentsSelector } from '../../../types/fulfillment';
 import { transformQuery } from '../../../utils/transform-query';
+import { optionalBooleanMapper } from '../../../utils/validators/is-boolean';
 
 export async function GET(
 	req: AuthenticatedMedusaRequest,
@@ -20,10 +21,12 @@ export async function GET(
 			isList: true,
 		}
 	);
-
+	const isDone = filterableFields.isDone;
+	delete filterableFields.isDone;
 	const [fulfillment, count] = await myFulfillmentService.listAndCount(
 		filterableFields as any,
-		listConfig
+		listConfig,
+		isDone
 	);
 
 	return res.status(200).json({
@@ -77,4 +80,9 @@ export class AdminFulfillmentParams extends AdminListFulfillmentsSelector {
 	@IsOptional()
 	@IsString()
 	order?: string;
+
+	@IsBoolean()
+	@IsOptional()
+	@Transform(({ value }) => optionalBooleanMapper.get(value))
+	isDone?: boolean;
 }
