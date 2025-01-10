@@ -22,7 +22,7 @@ export default async function handler({
 }
 
 export const config: ScheduledJobConfig = {
-	name: 'uncompleted-cart-delete-once-a-day',
-	schedule: '0 * * * *',
+	name: 'cron-main-check',
+	schedule: '*/10 * * * *',
 	data: {},
 };
