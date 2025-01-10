@@ -47,7 +47,7 @@ async function sendErrorEmail(error: Error, details: any) {
       <p><strong>Error Message:</strong> ${error.message}</p>
       <p><strong>Error Stack:</strong></p>
       <pre>${error.stack}</pre>
-      
+
       <h3>Additional Details:</h3>
       <pre>${JSON.stringify(details, null, 2)}</pre>
     `;
@@ -119,6 +119,11 @@ export default async function handler({
 	pluginOptions,
 }: ScheduledJobArgs) {
 	const logger: Logger = container.resolve('logger');
+
+	if (!firebaseConfig.apiKey) {
+		logger.error('Firebase configuration missing');
+		throw new Error('Firebase configuration missing');
+	}
 
 	logger.info('Starting inventory sync job');
 	try {
