@@ -33,6 +33,9 @@ export type CreateSupplierOrderInput = {
 	currency_code: string;
 	estimated_production_time: Date;
 	settlement_time: Date;
+	shipping_started_date?: Date;
+	warehouse_entry_date?: Date;
+	completed_payment_date?: Date;
 	document_url: string;
 	metadata?: Record<string, unknown>;
 };

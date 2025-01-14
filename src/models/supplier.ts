@@ -1,31 +1,37 @@
-import { BaseEntity, generateEntityId } from '@medusajs/medusa';
+import { BaseEntity, generateEntityId, resolveDbType } from '@medusajs/medusa';
 import { BeforeInsert, Column, Entity } from 'typeorm';
 
 @Entity()
 export class Supplier extends BaseEntity {
-  @Column()
-  email: string;
+	@Column()
+	email: string;
 
-  @Column()
-  supplier_name: string;
+	@Column()
+	supplier_name: string;
 
-  @Column({ nullable: true }) 
-  phone?: string;
+	@Column({ nullable: true })
+	phone?: string;
 
-  @Column({ nullable: true }) 
-  address?: string;
+	@Column({ nullable: true })
+	address?: string;
 
-  @Column()
-  estimated_production_time: number;
+	@Column()
+	estimated_production_time: number;
 
-  @Column()
-  settlement_time: number;
+	@Column()
+	settlement_time: number;
 
-  @Column({ type: 'jsonb', nullable: true, default: {} }) 
-  metadata: Record<string, unknown>;
+	@Column({ nullable: true, type: resolveDbType('timestamptz') })
+	completed_payment_date: Date;
 
-  @BeforeInsert()
-  private beforeInsert(): void {
-    this.id = generateEntityId(this.id, 'supplier');
-  }
+	@Column({ nullable: true, type: resolveDbType('timestamptz') })
+	warehouse_entry_date: Date;
+
+	@Column({ type: 'jsonb', nullable: true, default: {} })
+	metadata: Record<string, unknown>;
+
+	@BeforeInsert()
+	private beforeInsert(): void {
+		this.id = generateEntityId(this.id, 'supplier');
+	}
 }

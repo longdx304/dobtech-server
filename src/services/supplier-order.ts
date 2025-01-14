@@ -428,6 +428,9 @@ class SupplierOrderService extends TransactionBaseService {
 					region_id,
 					estimated_production_time,
 					settlement_time,
+					shipping_started_date,
+					warehouse_entry_date,
+					completed_payment_date,
 					currency_code,
 				} = data;
 
@@ -447,6 +450,9 @@ class SupplierOrderService extends TransactionBaseService {
 					currency_code,
 					estimated_production_time,
 					settlement_time,
+					shipping_started_date,
+					warehouse_entry_date,
+					completed_payment_date,
 					payment_status: PaymentStatus.AWAITING,
 				};
 

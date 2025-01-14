@@ -121,6 +121,15 @@ export class SupplierOrder extends BaseEntity {
 	@Column({ nullable: true, type: resolveDbType('timestamptz') })
 	rejected_at: Date;
 
+	@Column({ nullable: true, type: resolveDbType('timestamptz') })
+	shipping_started_date: Date;
+
+	@Column({ nullable: true, type: resolveDbType('timestamptz') })
+	warehouse_entry_date: Date;
+
+	@Column({ nullable: true, type: resolveDbType('timestamptz') })
+	completed_payment_date: Date;
+
 	@Index()
 	@Column()
 	region_id: string;
