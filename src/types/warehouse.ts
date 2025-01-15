@@ -11,8 +11,8 @@ export type AdminPostItemInventory = {
 	variant_id: string;
 	quantity: number;
 	unit_id: string;
-	line_item_id: string;
-	order_id: string;
+	line_item_id?: string;
+	order_id?: string;
 	type: 'INBOUND' | 'OUTBOUND';
 };
 

@@ -1,19 +1,20 @@
-import { MedusaError } from '@medusajs/utils';
 import {
 	buildQuery,
 	FindConfig,
 	Selector,
 	TransactionBaseService,
 } from '@medusajs/medusa';
+import { MedusaError } from '@medusajs/utils';
 import { Warehouse } from 'src/models/warehouse';
 import WarehouseRepository from 'src/repositories/warehouse';
+import WarehouseInventoryRepository from 'src/repositories/warehouse-inventory';
 import {
+	AdminPostItemInventory,
 	CreateWarehouseWithVariant,
 	FilterableWarehouseProps,
 } from 'src/types/warehouse';
 import { EntityManager, FindOptionsWhere, ILike } from 'typeorm';
 import WarehouseInventoryService from './warehouse-inventory';
-import WarehouseInventoryRepository from 'src/repositories/warehouse-inventory';
 
 type InjectedDependencies = {
 	manager: EntityManager;
@@ -26,6 +27,7 @@ class WarehouseService extends TransactionBaseService {
 	protected warehouseRepository_: typeof WarehouseRepository;
 	protected warehouseInventoryRepository_: typeof WarehouseInventoryRepository;
 	protected warehouseInventoryService_: WarehouseInventoryService;
+
 	constructor({
 		warehouseRepository,
 		warehouseInventoryRepository,
@@ -183,6 +185,33 @@ class WarehouseService extends TransactionBaseService {
 				return warehouse;
 			}
 		);
+	}
+
+	async addVariantIntoWarehouse(
+		dataWarehouse: CreateWarehouseWithVariant,
+		dataItemInventory: AdminPostItemInventory,
+		user_id: string
+	) {
+		return this.atomicPhase_(async (manager: EntityManager) => {
+			const warehouseInventoryServiceTx =
+				this.warehouseInventoryService_.withTransaction(manager);
+
+			const warehouseVariant = await this.createWarehouseWithVariant(
+				dataWarehouse
+			);
+			console.log('warehouseVariant:', warehouseVariant);
+
+			// retrieve warehouse
+			const warehouseInventory =
+				await warehouseInventoryServiceTx.retrieveByWarehouseAndVariant(
+					warehouseVariant.id,
+					dataItemInventory.variant_id,
+					dataWarehouse.unit_id
+				);
+			console.log('warehouseInventory:', warehouseInventory);
+
+			return { warehouseVariant, warehouseInventory };
+		});
 	}
 
 	async retrieve(id: string): Promise<Warehouse> {
