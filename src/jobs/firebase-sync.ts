@@ -120,6 +120,11 @@ export default async function handler({
 }: ScheduledJobArgs) {
 	const logger: Logger = container.resolve('logger');
 
+	if (!firebaseConfig.apiKey) {
+		logger.error('Firebase configuration missing');
+		throw new Error('Firebase configuration missing');
+	}
+
 	logger.info('Starting inventory sync job');
 	try {
 		// Initialize Firebase
