@@ -40,7 +40,10 @@ class WarehouseService extends TransactionBaseService {
 
 	async listAndCount(
 		selector: Selector<FilterableWarehouseProps> & { q?: string } = {},
-		config: FindConfig<FilterableWarehouseProps> = { skip: 0, take: 50 }
+		config: FindConfig<FilterableWarehouseProps> = {
+			skip: 0,
+			take: 50,
+		}
 	) {
 		const warehouseRepo = this.activeManager_.withRepository(
 			this.warehouseRepository_
@@ -52,6 +55,10 @@ class WarehouseService extends TransactionBaseService {
 			q = selector.q;
 			delete selector.q;
 		}
+		config.order = {
+			...config.order,
+			updated_at: 'DESC',
+		};
 
 		const query = buildQuery(selector, config);
 
@@ -77,13 +84,22 @@ class WarehouseService extends TransactionBaseService {
 					this.warehouseRepository_
 				);
 
+				if (!data.location) {
+					throw new MedusaError(
+						MedusaError.Types.INVALID_DATA,
+						'Vui lòng cung cấp vị trí kho'
+					);
+				}
 				// Check if a warehouse with the same locations already exists
 				const existingWarehouse = await warehouseRepo.findOne({
 					where: { location: data.location },
 				});
 
 				if (existingWarehouse) {
-					throw new Error('A warehouse with this location already exists');
+					throw new MedusaError(
+						MedusaError.Types.DUPLICATE_ERROR,
+						'Kho với vị trí này đã tồn tại'
+					);
 				}
 
 				const warehouse = warehouseRepo.create(data);
@@ -198,6 +214,13 @@ class WarehouseService extends TransactionBaseService {
 			this.warehouseRepository_
 		);
 
+		const warehouse = await this.retrieve(id);
+		if (warehouse?.inventories?.length > 0) {
+			throw new MedusaError(
+				MedusaError.Types.NOT_ALLOWED,
+				'Không thể xóa kho đã có hàng trong kho'
+			);
+		}
 		await warehouseRepo.delete(id);
 	}
 }

@@ -24,7 +24,7 @@ export async function POST(
 	}
 
 	const inventoryTransaction =
-		await inventoryTransactionService.addInventoryToWarehouse({
+		await inventoryTransactionService.removeInventoryToWarehouse({
 			...data,
 			user_id,
 		});
