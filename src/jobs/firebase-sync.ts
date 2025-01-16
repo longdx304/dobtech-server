@@ -9,6 +9,8 @@ import { UpdateProductVariantInput } from '@medusajs/medusa/dist/types/product-v
 import { initializeApp } from 'firebase/app';
 import { collection, getDocs, getFirestore } from 'firebase/firestore';
 import nodemailer, { TransportOptions } from 'nodemailer';
+import { isEmpty } from 'lodash';
+import WarehouseService from 'src/services/warehouse';
 
 // Firebase configuration
 const firebaseConfig = {
@@ -47,7 +49,7 @@ async function sendErrorEmail(error: Error, details: any) {
       <p><strong>Error Message:</strong> ${error.message}</p>
       <p><strong>Error Stack:</strong></p>
       <pre>${error.stack}</pre>
-      
+
       <h3>Additional Details:</h3>
       <pre>${JSON.stringify(details, null, 2)}</pre>
     `;
@@ -68,6 +70,7 @@ async function sendErrorEmail(error: Error, details: any) {
 // Gets inventory from Firebase
 async function getFirebaseInventory(db) {
 	const stock = {};
+	// const colRef = collection(db, 'products_test');
 	const colRef = collection(db, 'products');
 	const snapshot = await getDocs(colRef);
 
@@ -102,7 +105,7 @@ async function getFirebaseInventory(db) {
 					break;
 			}
 		});
-		stock[id] = quantity;
+		stock[id] = { quantity: quantity, inventory: doc.data().inventory };
 	});
 
 	return stock;
@@ -120,6 +123,11 @@ export default async function handler({
 }: ScheduledJobArgs) {
 	const logger: Logger = container.resolve('logger');
 
+	if (!firebaseConfig.apiKey) {
+		logger.error('Firebase configuration missing');
+		throw new Error('Firebase configuration missing');
+	}
+
 	logger.info('Starting inventory sync job');
 	try {
 		// Initialize Firebase
@@ -131,6 +139,8 @@ export default async function handler({
 		const productVariantService: ProductVariantService = container.resolve(
 			'productVariantService'
 		);
+		const warehouseService: WarehouseService =
+			container.resolve('warehouseService');
 		logger.info('Product variant service resolved');
 
 		// Get inventory data from Firebase
@@ -150,20 +160,42 @@ export default async function handler({
 
 		// Prepare batch update data
 		const updateData: UpdateData[] = [];
+		let warehouse: any = {};
 
 		for (const variant of variants) {
 			const sku = variant.sku;
+			// Update inventory quantity
 			if (
 				sku &&
 				firebaseInventory[sku] !== undefined &&
-				variant.inventory_quantity !== firebaseInventory[sku]
+				variant.inventory_quantity !== firebaseInventory[sku].quantity
 			) {
 				updateData.push({
 					variant: variant,
 					updateData: {
-						inventory_quantity: firebaseInventory[sku],
+						inventory_quantity: firebaseInventory[sku].quantity,
 					},
 				});
+			}
+			// Update warehouse
+			if (
+				sku &&
+				firebaseInventory[sku] !== undefined &&
+				firebaseInventory[sku]?.inventory
+			) {
+				const inventory = firebaseInventory[sku]?.inventory || [];
+				inventory?.length &&
+					inventory.forEach((item) => {
+						if (!item.position) return;
+						if (!warehouse[item.position]) {
+							warehouse[item.position] = [{ ...item, variant_id: variant.id }];
+						} else {
+							warehouse[item.position].push({
+								...item,
+								variant_id: variant.id,
+							});
+						}
+					});
 			}
 		}
 
@@ -177,6 +209,22 @@ export default async function handler({
 		} else {
 			// No updates required
 			logger.info('No inventory updates required');
+		}
+
+		logger.info(
+			`Inventory warehouse update data prepared: ${
+				Object.keys(warehouse).length
+			}`
+		);
+		if (!isEmpty(warehouse)) {
+			logger.info(
+				`Updating warehouse with ${Object.keys(warehouse).length} positions`
+			);
+			await warehouseService.updateWarehouseWithVariantFromFire(warehouse);
+			logger.info('Warehouse update completed successfully');
+		} else {
+			// No updates required
+			logger.info('No warehouse updates required');
 		}
 	} catch (error) {
 		logger.error('Error updating inventory:', error);

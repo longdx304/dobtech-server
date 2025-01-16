@@ -25,6 +25,7 @@ export async function GET(
 			isList: true,
 		}
 	);
+	console.log("filterableFields, listConfig:", filterableFields, listConfig)
 
 	const [warehouse, count] = await warehouseService.listAndCount(
 		filterableFields,
@@ -56,6 +57,13 @@ export class AdminGetWarehousesParams extends extendedFindParamsMixin({
 	limit: 50,
 	offset: 0,
 }) {
+	/**
+	 * {@inheritDoc FindParams.expand}
+	 */
+	@IsString()
+	@IsOptional()
+	expand?: string;
+
 	/**
 	 * IDs to filter users by.
 	 */
@@ -114,3 +122,5 @@ export class AdminGetWarehousesParams extends extendedFindParamsMixin({
 	@IsString()
 	fields?: string;
 }
+
+export const AUTHENTICATE = false;

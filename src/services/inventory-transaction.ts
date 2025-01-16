@@ -15,6 +15,7 @@ import WarehouseInventoryRepository from 'src/repositories/warehouse-inventory';
 import {
 	CreateInventoryTransaction,
 	FilterableInventoryTransactionProps,
+	ManageInventoryTransaction,
 } from 'src/types/inventory-transaction';
 import {
 	Between,
@@ -277,6 +278,113 @@ class InventoryTransactionService extends TransactionBaseService {
 		}
 
 		return inventoryTransaction;
+	}
+
+	// Add
+	async addInventoryToWarehouse(data: ManageInventoryTransaction) {
+		return await this.atomicPhase_(async (manager: EntityManager) => {
+			const inventoryTransactionRepo = manager.withRepository(
+				this.inventoryTransactionRepository_
+			);
+
+			const warehouseInventoryServiceTx =
+				this.warehouseInventoryService_.withTransaction(manager);
+
+			const itemUnitServiceTx = this.itemUnitService_.withTransaction(manager);
+
+			// retrieve quantity of the item unit
+			// to calculate the inventory quantity
+			const retrievedUnit = await itemUnitServiceTx.retrieve(data.unit_id);
+			const inventoryQuantity = data.quantity * retrievedUnit.quantity;
+
+			// retrieve warehouse inventory
+			const warehouseInventory = await warehouseInventoryServiceTx.retrieve(
+				data.warehouse_inventory_id
+			);
+
+			if (warehouseInventory.item_unit) {
+				if (warehouseInventory.item_unit.id !== data.unit_id) {
+					await warehouseInventoryServiceTx.createUnitWithVariant({
+						warehouse_id: warehouseInventory.warehouse_id,
+						unit_id: data.unit_id,
+						variant_id: data.variant_id,
+						quantity: inventoryQuantity,
+					});
+				} else {
+					await warehouseInventoryServiceTx.update(warehouseInventory.id, {
+						quantity: warehouseInventory.quantity + inventoryQuantity,
+					});
+				}
+			}
+
+			const note =
+				data?.note ||
+				`Đã nhập kho ${data.quantity} ${retrievedUnit.unit} (${inventoryQuantity} đôi) vào vị trí ${warehouseInventory.warehouse.location}`;
+
+			// create a new inventory transaction
+			const inventoryTransaction = inventoryTransactionRepo.create({
+				variant_id: data.variant_id,
+				warehouse_id: data.warehouse_id,
+				quantity: inventoryQuantity,
+				type: data.type as TransactionType,
+				note,
+				user_id: data.user_id,
+			});
+
+			await inventoryTransactionRepo.save(inventoryTransaction);
+
+			return inventoryTransaction;
+		});
+	}
+
+	// Remove
+	async removeInventoryToWarehouse(data: ManageInventoryTransaction) {
+		return await this.atomicPhase_(async (manager: EntityManager) => {
+			const inventoryTransactionRepo = manager.withRepository(
+				this.inventoryTransactionRepository_
+			);
+
+			const warehouseInventoryServiceTx =
+				this.warehouseInventoryService_.withTransaction(manager);
+
+			const itemUnitServiceTx = this.itemUnitService_.withTransaction(manager);
+
+			// retrieve quantity of the item unit
+			// to calculate the inventory quantity
+			const retrievedUnit = await itemUnitServiceTx.retrieve(data.unit_id);
+			const inventoryQuantity = data.quantity * retrievedUnit.quantity;
+
+			// retrieve warehouse inventory
+			const warehouseInventory = await warehouseInventoryServiceTx.retrieve(
+				data.warehouse_inventory_id
+			);
+
+			if (warehouseInventory.quantity - inventoryQuantity > 0) {
+				await warehouseInventoryServiceTx.update(warehouseInventory.id, {
+					quantity: warehouseInventory.quantity - inventoryQuantity,
+				});
+			} else {
+				await warehouseInventoryServiceTx.delete(warehouseInventory.id);
+			}
+
+			const note =
+				data?.note ||
+				`Đã xuất kho ${data.quantity} ${retrievedUnit.unit} (${inventoryQuantity} đôi) tại vị trí ${warehouseInventory.warehouse.location}`;
+
+			// create a new inventory transaction
+			const inventoryTransaction = inventoryTransactionRepo.create({
+				variant_id: data.variant_id,
+				warehouse_id: data.warehouse_id,
+				quantity: inventoryQuantity,
+				type: data.type as TransactionType,
+				note,
+				user_id: data.user_id,
+			});
+
+			await inventoryTransactionRepo.save(inventoryTransaction);
+
+			return inventoryTransaction;
+		});
 	}
 }
 

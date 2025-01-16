@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { Warehouse } from './warehouse';
 import { ItemUnit } from './item-unit';
+import { ProductVariant } from './product-variant';
 
 @Entity()
 @Unique(['warehouse_id', 'variant_id'])
@@ -36,6 +37,10 @@ export class WarehouseInventory extends BaseEntity {
 	@ManyToOne(() => Warehouse, (warehouse) => warehouse.inventories)
 	@JoinColumn({ name: 'warehouse_id' })
 	warehouse: Warehouse;
+
+	@ManyToOne(() => ProductVariant, (variant) => variant.id)
+	@JoinColumn({ name: 'variant_id' })
+	variant: ProductVariant;
 
 	@BeforeInsert()
 	private beforeInsert(): void {

@@ -11,6 +11,18 @@ export type CreateInventoryTransaction = {
 	warehouse_id: string;
 	type: 'INBOUND' | 'OUTBOUND';
 	user_id: string;
+	note?: string;
+};
+
+export type ManageInventoryTransaction = {
+	unit_id: string;
+	variant_id: string;
+	warehouse_inventory_id: string;
+	quantity: number;
+	warehouse_id: string;
+	type: 'INBOUND' | 'OUTBOUND';
+	user_id?: string;
+	note?: string;
 };
 
 export type UpdateInventoryTransaction = Partial<CreateInventoryTransaction>;
