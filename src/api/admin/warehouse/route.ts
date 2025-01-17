@@ -122,5 +122,3 @@ export class AdminGetWarehousesParams extends extendedFindParamsMixin({
 	@IsString()
 	fields?: string;
 }
-
-export const AUTHENTICATE = false;
